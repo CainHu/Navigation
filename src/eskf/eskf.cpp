@@ -535,3 +535,46 @@ void ESKF::predict_covariance(const array<float, 3> &w, const array<float, 3> &a
         }
     }
 }
+
+void ESKF::fuse_position(const array<float, 3> &pos_left, const array<float, 3> &pos_right) {
+    /*
+    s = [p, v, R, bg, ba, g]
+    δs = [δp, δv, δθ, δbg, δba, δg]
+    s + δs = [p+δp, v+δv, R*Exp(δθ), bg+δbg, ba+δba, g+δg]
+
+    pl = p + R * dl
+    pr = p + R * dr
+    vl = v + R * (w - bg)^ * dl
+    vr = v + R * (w - bg)^ * dr
+
+    δpl / δp = I
+    δpl / δθ = -R * dl^
+    δpr / δp = I
+    δpl / δθ = -R * dr^
+
+    δvl / δv = I
+    δvl / δθ = R * (dl^ * (w - bg))^
+    δvl / δbg = R * dl^
+    δvr / δv = I
+    δvr / δθ = R * (dr^ * (w - bg))^
+    δvr / δbg = R * dr^
+
+    H = [I, O, -R*dl^,          O,     O, O
+         O, O, -R*dr^,          O,     O, O
+         O, I, R*(dl^*(w-bg))^, R*dl^, O, O
+         O, I, R*(dr^*(w-bg))^, R*dr^, O, 0]
+    */
+
+    // array<array<float, 3>, 3> rot_dl_hat = {{{_rot[0][1] * _dl[2] - _rot[2][0] * _dl[1]},
+    //                                          {_rot[0][1]},
+    //                                          {}}};
+}
+void fuse_velocity(const array<float, 3> &vel_left, const array<float, 3> &vel_right);
+
+void fuse_position_left_only(const array<float, 3> pos);
+void fuse_velocity_left_only(const array<float, 3> vel);
+void fuse_position_right_only(const array<float, 3> pos);
+void fuse_velocity_right_only(const array<float, 3> vel);
+
+void fuse_position_z(float pos_z);
+void fuse_velocity_xy(const array<float, 2> vel_xy);
