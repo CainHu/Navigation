@@ -6,12 +6,17 @@
             "command": "E:\\mingw64\\bin\\g++.exe",
             "args": [
                 "-fdiagnostics-color=always",
+                "-O2",
                 "-g",
-                "${file}",
+                "${fileDirname}\\*.cpp",
+                "-g",
+                "${workspaceFolder}/src/eskf/*.cpp",
                 "-o",
                 "${fileDirname}\\${fileBasenameNoExtension}.exe",
                 "-I",
-                "E:/eigen3"
+                "E:/eigen3",
+                "-I",
+                "${workspaceFolder}/include/eskf"
             ],
             "options": {
                 "cwd": "${fileDirname}"

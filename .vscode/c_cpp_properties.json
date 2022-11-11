@@ -5,7 +5,7 @@
             "includePath": [
                 "${workspaceFolder}/**",
                 "E:/eigen3/**",
-                "${workspaceFolder}/include/**"
+                "${workspaceFolder}/include/eskf"
             ],
             "defines": [
                 "_DEBUG",
