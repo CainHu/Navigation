@@ -7,7 +7,6 @@
 
 #include <Eigen/Dense>
 #include <cmath>
-#include <array>
 
 namespace eskf {
     using namespace std;
@@ -23,7 +22,7 @@ namespace eskf {
             reset_error_state();
             reset_accmulator_cov();
             for (unsigned int i = 0; i < 16; ++i) {
-                _cov[i][i] = 1.f;
+                _cov(i, i) = 1.f;
             }
         }
 
@@ -54,8 +53,8 @@ namespace eskf {
         const Quaternionf &get_quaternion() const { return _q; };
         const float get_gravity() const { return _g; };
         const float get_dt() const { return _dt; };
-        const array<float, 16> &get_error_state() const { return _error_state; };
-        const array<array<float, 16>, 16> &get_covariance_matrix() const { return _cov; };
+        const Matrix<float, 16, 1> &get_error_state() const { return _error_state; };
+        const Matrix<float, 16, 16> &get_covariance_matrix() const { return _cov; };
 
         // Setters
         void set_dt(const float dt) { _dt = dt; _dt2 = dt * dt; };
@@ -67,12 +66,12 @@ namespace eskf {
         void set_attitude(const Matrix3f &r) { _rot = r; _q = _rot; };
         void set_attitude(const Quaternionf &q) { _q = q; _rot = _q; };
         void set_attitude(const AngleAxisf &a) { _q = a; _rot = _q;};    
-        void set_accelerometer_standard_deviation(const Vector3f std) { _q_cov[3] = std[0] * std[0]; _q_cov[4] = std[1] * std[1]; _q_cov[5] = std[2] * std[2]; };
-        void set_gyroscope_standard_deviation(const Vector3f std) { _q_cov[6] = std[0] * std[0]; _q_cov[7] = std[1] * std[1]; _q_cov[8] = std[2] * std[2]; };
-        void set_drift_saccelerometer_tandard_deviation(const Vector3f std) { _q_cov[12] = std[0] * std[0]; _q_cov[13] = std[1] * std[1]; _q_cov[14] = std[2] * std[2]; }
-        void set_drift_gyroscope_standard_deviation(const Vector3f std) { _q_cov[9] = std[0] * std[0]; _q_cov[10] = std[1] * std[1]; _q_cov[11] = std[2] * std[2]; }
-        void set_gravity_standard_deviation(const float std) { _q_cov[15] = std * std; };
-        void set_processing_standard_deviation(const float std) { for (unsigned char i = 0; i < 16; ++i) { _q_cov[i] += std * std; } };
+        void set_accelerometer_standard_deviation(const Vector3f &std) { _q_cov(3) = std(0) * std(0); _q_cov(4) = std(1) * std(1); _q_cov(5) = std(2) * std(2); };
+        void set_gyroscope_standard_deviation(const Vector3f &std) { _q_cov(6) = std(0) * std(0); _q_cov(7) = std(1) * std(1); _q_cov(8) = std(2) * std(2); };
+        void set_drift_saccelerometer_tandard_deviation(const Vector3f &std) { _q_cov(12) = std(0) * std(0); _q_cov(13) = std(1) * std(1); _q_cov(14) = std(2) * std(2); }
+        void set_drift_gyroscope_standard_deviation(const Vector3f &std) { _q_cov(9) = std(0) * std(0); _q_cov(10) = std(1) * std(1); _q_cov(11) = std(2) * std(2); }
+        void set_gravity_standard_deviation(const float std) { _q_cov(15) = std * std; };
+        void set_processing_standard_deviation(const float std) { for (unsigned char i = 0; i < 16; ++i) { _q_cov(i) += std * std; } };
         void set_priori_covariance_matrix(Matrix<float, 16, 1> &q) { _q_cov = q; };
 
     private:
@@ -88,17 +87,17 @@ namespace eskf {
         Matrix3f _rot;                          // Rotation matrix from body frame to world frame
         Quaternionf _q;                         // Quaternion matrix from body frame to world frame
 
-        array<float, 16> _error_state {};       // [δp, δv, δθ, δbg, δba, δg]
-        array<array<float, 16>, 16> _cov {};    // Covariance matrix of error state
+        Matrix<float, 16, 1> _error_state {};       // [δp, δv, δθ, δbg, δba, δg]
+        Matrix<float, 16, 16> _cov {};    // Covariance matrix of error state
 
-        array<float, 16> _accumulator_cov {};   // Accumulator of covariance matrix
+        Matrix<float, 16, 1> _accumulator_cov {};   // Accumulator of covariance matrix
 
         // Posteriori
-        unsigned char conservative_posteriori_estimate(const array<float, 16> &HP, const float &HPHT_plus_R, const float &obs_error, const float &gate);
+        unsigned char conservative_posteriori_estimate(const Matrix<float, 16, 1> &HP, const float &HPHT_plus_R, const float &obs_error, const float &gate);
 
         void regular_covariance_to_symmetric(unsigned int start_index=0, unsigned int end_index=16);
-        void rotation_from_axis_angle(Matrix3f &r, const array<float, 3> &a) const;
-        void quaternion_from_axis_angle(Quaternionf &q, const array<float, 3> &a) const;
+        void rotation_from_axis_angle(Matrix3f &r, const Vector3f &a) const;
+        void quaternion_from_axis_angle(Quaternionf &q, const Vector3f &a) const;
         float kahan_summation(float sum_previous, float input, float &accumulator);
     };
 }
