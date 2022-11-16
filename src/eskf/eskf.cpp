@@ -145,17 +145,17 @@ void ESKF::predict_covariance(const Vector3f &w, const Vector3f &a) {
     const float x21 = mrdt22*a_corr(0) - mrdt20*a_corr(2);
     const float x22 = mrdt20*a_corr(1) - mrdt21*a_corr(0);
 
-    // (w - bg) * dt
-    const Vector3f axis_angle_corr = (w - _bg) * _dt;
+    // -(w - bg) * dt
+    const Vector3f axis_angle = (_bg - w) * _dt;
     // Y = Exp(-(w - bg) * Δt)
-    const float y00 = 1.f, y01 = axis_angle_corr(2), y02 = -axis_angle_corr(1);
-    const float y10 = -axis_angle_corr(2), y11 = 1.f, y12 = axis_angle_corr(0);
-    const float y20 = axis_angle_corr(1), y21 = -axis_angle_corr(0), y22 = 1.f;
-    // Matrix3f y;
-    // rotation_from_axis_angle(y, axis_angle_corr);
-    // const float y00 = y(0, 1), y01 = y(0, 1), y02 = y(0, 2);
-    // const float y10 = y(1, 1), y11 = y(1, 1), y12 = y(1, 2);
-    // const float y20 = y(2, 1), y21 = y(2, 1), y22 = y(2, 2);
+    // const float y00 = 1.f, y01 = -axis_angle(2), y02 = axis_angle(1);
+    // const float y10 = axis_angle(2), y11 = 1.f, y12 = -axis_angle(0);
+    // const float y20 = -axis_angle(1), y21 = axis_angle(0), y22 = 1.f;
+    Matrix3f y;
+    rotation_from_axis_angle(y, axis_angle);
+    const float y00 = y(0, 0), y01 = y(0, 1), y02 = y(0, 2);
+    const float y10 = y(1, 0), y11 = y(1, 1), y12 = y(1, 2);
+    const float y20 = y(2, 0), y21 = y(2, 1), y22 = y(2, 2);
 
     // Equations for covariance matrix prediction, without process noise!
     const float var0 = _cov(3,0) + _cov(3,3)*_dt;
@@ -301,7 +301,6 @@ void ESKF::predict_covariance(const Vector3f &w, const Vector3f &a) {
     _cov(6,9) = var76;
     _cov(7,9) = _cov(9,6)*y10 + _cov(9,7)*y11 + _cov(9,8)*y12 + var77;
     _cov(8,9) = _cov(9,6)*y20 + _cov(9,7)*y21 + _cov(9,8)*y22 + var79;
-    _cov(9,9) = _cov(9,9);
     _cov(0,10) = var13;
     _cov(1,10) = var26;
     _cov(2,10) = var38;

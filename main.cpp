@@ -160,7 +160,7 @@ int main() {
     eskf_rtk.set_processing_standard_deviation(eskf::noise_std_proc);
     eskf_rtk.initialize();
 
-    // clock_t t1 = clock();
+    clock_t t1 = clock();
     for (unsigned i = 0; i < num_step; ++i) {
         eskf_rtk.predict_state(w_meas[i], a_meas[i]);
         eskf_rtk.predict_covariance(w_meas[i], a_meas[i]);
@@ -193,10 +193,10 @@ int main() {
 
         // cout << g_hat[i] << endl;
 
-        cout << p_true[i].transpose() << ", " << p_hat[i].transpose() << endl;
+        // cout << p_true[i].transpose() << ", " << p_hat[i].transpose() << endl;
     }
-    // clock_t t2 = clock();
-    // cout << "time: " << t2 - t1 << endl;
+    clock_t t2 = clock();
+    cout << "time: " << t2 - t1 << endl;
 
     return 0;
 }
