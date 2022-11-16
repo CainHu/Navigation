@@ -10,8 +10,7 @@ using namespace std;
 using namespace eskf;
 
 void ESKF::initialize() {
-    _rot[0][0] = _rot[1][1] = _rot[2][2] = 1.f;
-    _rot[0][1] = _rot[0][2] = _rot[1][0] = _rot[1][2] = _rot[2][0] = _rot[2][1] = 0.f;
+    _rot.setIdentity();
 
     reset_state();
     reset_error_state();
@@ -20,15 +19,14 @@ void ESKF::initialize() {
     reset_accmulator_cov();
 }
 
-void ESKF::rotation_from_axis_angle(array<array<float, 3>, 3> &r, const array<float, 3> &a) const {
+void ESKF::rotation_from_axis_angle(Matrix3f &r, const array<float, 3> &a) const {
     /* Rodrigues's Formula:
-        * a = n * θ
-        * R = cosθ*I + (1 - cosθ)*n*n' + sinθ*n^
-        * */
+    * a = n * θ
+    * R = cosθ*I + (1 - cosθ)*n*n' + sinθ*n^
+    * */
     const float a_norm_square = a[0] * a[0] + a[1] * a[1] + a[2] * a[2];
     if (a_norm_square < _dt2 * 1e-12f) {
-        r[0][0] = r[1][1] = r[2][2] = 1.f;
-        r[0][1] = r[0][2] = r[1][0] = r[1][2] = r[2][0] = r[2][1] = 0.f;
+        r.setIdentity();
     } else {
         const float a_norm = sqrtf(a_norm_square);
         const array<float, 3> a_unit = {a[0] / a_norm, a[1] / a_norm, a[2] / a_norm};
@@ -47,19 +45,41 @@ void ESKF::rotation_from_axis_angle(array<array<float, 3>, 3> &r, const array<fl
         const float sy = sin_theta * a_unit[1];
         const float sz = sin_theta * a_unit[2];
 
-        r[0][0] = cos_theta + xx;
-        r[0][1] = xy - sz;
-        r[0][2] = xz + sy;
-        r[1][0] = xy + sz;
-        r[1][1] = cos_theta + yy;
-        r[1][2] = yz - sx;
-        r[2][0] = xz - sy;
-        r[2][1] = yz + sx;
-        r[2][2] = cos_theta + zz;
+        r(0, 0) = cos_theta + xx;
+        r(0, 1) = xy - sz;
+        r(0, 2) = xz + sy;
+        r(1, 0) = xy + sz;
+        r(1, 1) = cos_theta + yy;
+        r(1, 2) = yz - sx;
+        r(2, 0) = xz - sy;
+        r(2, 1) = yz + sx;
+        r(2, 2) = cos_theta + zz;
     }
 }
 
-void ESKF::predict_state(const array<float, 3> &w, const array<float, 3> &a) {
+void ESKF::quaternion_from_axis_angle(Quaternionf &q, const array<float, 3> &a) const {
+    /*
+    a = n * θ
+    q = [cos(θ/2), n*sin(θ/2)]
+    */
+
+    const float a_norm_square = a[0] * a[0] + a[1] * a[1] + a[2] * a[2];
+    if (a_norm_square < _dt2 * 1e-12f) {
+        q.setIdentity();
+    } else {
+        const float a_norm = sqrtf(a_norm_square);
+        const array<float, 3> a_unit = {a[0] / a_norm, a[1] / a_norm, a[2] / a_norm};
+        const float half_theta = 0.5f * a_norm;
+        const float c = cosf(half_theta), s = sinf(half_theta);
+
+        q.w() = c;
+        q.x() = s * a_unit[0];
+        q.y() = s * a_unit[1];
+        q.z() = s * a_unit[2];
+    }
+}
+
+void ESKF::predict_state(const Vector3f &w, const Vector3f &a) {
     // state: [p, v, bg, ba, g]
     // error_state : [δp, δv, δθ, δbg, δba, δg]
 
@@ -73,64 +93,60 @@ void ESKF::predict_state(const array<float, 3> &w, const array<float, 3> &a) {
     * */
 
     // a_body_corr = a - ba
-    const array<float, 3> a_body_corr = {a[0] - _state[9], a[1] - _state[10], a[2] - _state[11]};
+    const Vector3f a_body_corr = {a[0] - _ba[0], a[1] - _ba[1], a[2] - _ba[2]};
 
     // a_world = R * (a - ba) + [0;0;g]
-    const array<float, 3> a_world = {_rot[0][0] * a_body_corr[0] + _rot[0][1] * a_body_corr[1] +_rot[0][2] * a_body_corr[2],
-                                     _rot[1][0] * a_body_corr[0] + _rot[1][1] * a_body_corr[1] +_rot[1][2] * a_body_corr[2],
-                                     _rot[2][0] * a_body_corr[0] + _rot[2][1] * a_body_corr[1] +_rot[2][2] * a_body_corr[2] + _state[12]};
+    const Vector3f a_world(_rot(0, 0) * a_body_corr[0] + _rot(0, 1) * a_body_corr[1] +_rot(0, 2) * a_body_corr[2],
+                           _rot(1, 0) * a_body_corr[0] + _rot(1, 1) * a_body_corr[1] +_rot(1, 2) * a_body_corr[2],
+                           _rot(2, 0) * a_body_corr[0] + _rot(2, 1) * a_body_corr[1] +_rot(2, 2) * a_body_corr[2] + _g);
 
     // v
-    const array<float, 3> v_last = {_state[3], _state[4], _state[5]};
+    const Vector3f v_last = _v;
 
     // v' = v + a * Δt
-    _state[3] += a_world[0] * _dt;
-    _state[4] += a_world[1] * _dt;
-    _state[5] += a_world[2] * _dt;
+    _v += a_world * _dt;
 
     // p' = p + 0.5 * (v' + v) * Δt
-    _state[0] += 0.5f * (_state[3] + v_last[0]) * _dt;
-    _state[1] += 0.5f * (_state[4] + v_last[1]) * _dt;
-    _state[2] += 0.5f * (_state[5] + v_last[2]) * _dt;
+    _p += 0.5f * (_v + v_last) * _dt;
 
     // bg' = bg
     // ba' = ba
     // g = g
 
     // axis_angle = (w - bg) * Δt
-    const array<float, 3> axis_angle = {(w[0] - _state[6]) * _dt, (w[1] - _state[7]) * _dt, (w[2] - _state[8]) * _dt};
+    const array<float, 3> axis_angle = {(w[0] - _bg[0]) * _dt, (w[1] - _bg[1]) * _dt, (w[2] - _bg[2]) * _dt};
 
-    // ΔR = Exp((w - bg) * Δt)
-    array<array<float, 3>, 3> delta_rot {};
-    rotation_from_axis_angle(delta_rot, axis_angle);
+    // // ΔR = Exp((w - bg) * Δt)
+    // Matrix3f delta_rot {};
+    // rotation_from_axis_angle(delta_rot, axis_angle);
 
-    // R' = R * ΔR
-    const array<array<float, 3>, 3> rot = _rot;
-    _rot[0][0] = rot[0][0] * delta_rot[0][0] + rot[0][1] * delta_rot[1][0] + rot[0][2] * delta_rot[2][0];
-    _rot[0][1] = rot[0][0] * delta_rot[0][1] + rot[0][1] * delta_rot[1][1] + rot[0][2] * delta_rot[2][1];
-    _rot[0][2] = rot[0][0] * delta_rot[0][2] + rot[0][1] * delta_rot[1][2] + rot[0][2] * delta_rot[2][2];
-    _rot[1][0] = rot[1][0] * delta_rot[0][0] + rot[1][1] * delta_rot[1][0] + rot[1][2] * delta_rot[2][0];
-    _rot[1][1] = rot[1][0] * delta_rot[0][1] + rot[1][1] * delta_rot[1][1] + rot[1][2] * delta_rot[2][1];
-    _rot[1][2] = rot[1][0] * delta_rot[0][2] + rot[1][1] * delta_rot[1][2] + rot[1][2] * delta_rot[2][2];
-    _rot[2][0] = rot[2][0] * delta_rot[0][0] + rot[2][1] * delta_rot[1][0] + rot[2][2] * delta_rot[2][0];
-    _rot[2][1] = rot[2][0] * delta_rot[0][1] + rot[2][1] * delta_rot[1][1] + rot[2][2] * delta_rot[2][1];
-    _rot[2][2] = rot[2][0] * delta_rot[0][2] + rot[2][1] * delta_rot[1][2] + rot[2][2] * delta_rot[2][2];
+    // // R' = R * ΔR
+    // const Matrix3f rot = _rot;
+    // _rot = rot * delta_rot;
+
+    // Δq = Exp((w - bg) * Δt)
+    Quaternionf delta_q {};
+    quaternion_from_axis_angle(delta_q, axis_angle);
+
+    // q' = q * Δq
+    const Quaternionf q = _q;
+    _q = q * delta_q;
+    _q.normalize();
+
+    _rot = _q;
 }
 
-void ESKF::predict_covariance(const array<float, 3> &w, const array<float, 3> &a) {
-    const array<float, 13> &state = get_state();
-    const array<array<float, 3>, 3> &r = get_rotation_matrix();
-
+void ESKF::predict_covariance(const Vector3f &w, const Vector3f &a) {
     // x = R * (a - ba)^
-    const array<float, 3> a_corr = {a[0] - state[9], a[1] - state[10], a[2] - state[11]};
-    const array<array<float, 3>, 3> x = {{{-r[0][2]*a_corr[1] + r[0][1]*a_corr[2], r[0][2]*a_corr[0] - r[0][0]*a_corr[2], -r[0][1]*a_corr[0] + r[0][0]*a_corr[1]},
-                                          {-r[1][2]*a_corr[1] + r[1][1]*a_corr[2], r[1][2]*a_corr[0] - r[1][0]*a_corr[2], -r[1][1]*a_corr[0] + r[1][0]*a_corr[1]},
-                                          {-r[2][2]*a_corr[1] + r[2][1]*a_corr[2], r[2][2]*a_corr[0] - r[2][0]*a_corr[2], -r[2][1]*a_corr[0] + r[2][0]*a_corr[1]}}};
+    const array<float, 3> a_corr = {a[0] - _ba[0], a[1] - _ba[1], a[2] - _ba[2]};
+    const array<array<float, 3>, 3> x = {{{-_rot(0, 2)*a_corr[1] + _rot(0, 1)*a_corr[2], _rot(0, 2)*a_corr[0] - _rot(0, 0)*a_corr[2], -_rot(0, 1)*a_corr[0] + _rot(0, 0)*a_corr[1]},
+                                          {-_rot(1, 2)*a_corr[1] + _rot(1, 1)*a_corr[2], _rot(1, 2)*a_corr[0] - _rot(1, 0)*a_corr[2], -_rot(1, 1)*a_corr[0] + _rot(1, 0)*a_corr[1]},
+                                          {-_rot(2, 2)*a_corr[1] + _rot(2, 1)*a_corr[2], _rot(2, 2)*a_corr[0] - _rot(2, 0)*a_corr[2], -_rot(2, 1)*a_corr[0] + _rot(2, 0)*a_corr[1]}}};
 
     // y = Exp(-(w - bg) * Δt)
-    const array<float, 3> w_corr = {w[0] - state[6], w[1] - state[7], w[2] - state[8]};
+    const array<float, 3> w_corr = {w[0] - _bg[0], w[1] - _bg[1], w[2] - _bg[2]};
     const array<float, 3> axis_angle = {-w_corr[0] * _dt, -w_corr[1] * _dt, -w_corr[2] * _dt};
-    array<array<float, 3>, 3> y {};
+    Matrix3f y {};
     rotation_from_axis_angle(y, axis_angle);
 
     // P11_ = P11 + (P21 + P12) * dt + P22 * dt^2   (乘法: 12, 加法: 18)
@@ -174,37 +190,37 @@ void ESKF::predict_covariance(const array<float, 3> &w, const array<float, 3> &a
                                            {_cov[2][6] + _cov[5][6]*_dt,_cov[2][7] + _cov[5][7]*_dt,_cov[2][8] + _cov[5][8]*_dt}}};
 
     // P13_ = (P13 + P23 * dt) * Y' - P14_ * dt     (乘法: 36, 加法: 27)
-    _cov[0][6] = c1[0][0]*y[0][0] + c1[0][1]*y[0][1] + c1[0][2]*y[0][2] - _cov[0][9]*_dt;
-    _cov[0][7] = c1[0][0]*y[1][0] + c1[0][1]*y[1][1] + c1[0][2]*y[1][2] - _cov[0][10]*_dt;
-    _cov[0][8] = c1[0][0]*y[2][0] + c1[0][1]*y[2][1] + c1[0][2]*y[2][2] - _cov[0][11]*_dt;
-    _cov[1][6] = c1[1][0]*y[0][0] + c1[1][1]*y[0][1] + c1[1][2]*y[0][2] - _cov[1][9]*_dt;
-    _cov[1][7] = c1[1][0]*y[1][0] + c1[1][1]*y[1][1] + c1[1][2]*y[1][2] - _cov[1][10]*_dt;
-    _cov[1][8] = c1[1][0]*y[2][0] + c1[1][1]*y[2][1] + c1[1][2]*y[2][2] - _cov[1][11]*_dt;
-    _cov[2][6] = c1[2][0]*y[0][0] + c1[2][1]*y[0][1] + c1[2][2]*y[0][2] - _cov[2][9]*_dt;
-    _cov[2][7] = c1[2][0]*y[1][0] + c1[2][1]*y[1][1] + c1[2][2]*y[1][2] - _cov[2][10]*_dt;
-    _cov[2][8] = c1[2][0]*y[2][0] + c1[2][1]*y[2][1] + c1[2][2]*y[2][2] - _cov[2][11]*_dt;
+    _cov[0][6] = c1[0][0]*y(0, 0) + c1[0][1]*y(0, 1) + c1[0][2]*y(0, 2) - _cov[0][9]*_dt;
+    _cov[0][7] = c1[0][0]*y(1, 0) + c1[0][1]*y(1, 1) + c1[0][2]*y(1, 2) - _cov[0][10]*_dt;
+    _cov[0][8] = c1[0][0]*y(2, 0) + c1[0][1]*y(2, 1) + c1[0][2]*y(2, 2) - _cov[0][11]*_dt;
+    _cov[1][6] = c1[1][0]*y(0, 0) + c1[1][1]*y(0, 1) + c1[1][2]*y(0, 2) - _cov[1][9]*_dt;
+    _cov[1][7] = c1[1][0]*y(1, 0) + c1[1][1]*y(1, 1) + c1[1][2]*y(1, 2) - _cov[1][10]*_dt;
+    _cov[1][8] = c1[1][0]*y(2, 0) + c1[1][1]*y(2, 1) + c1[1][2]*y(2, 2) - _cov[1][11]*_dt;
+    _cov[2][6] = c1[2][0]*y(0, 0) + c1[2][1]*y(0, 1) + c1[2][2]*y(0, 2) - _cov[2][9]*_dt;
+    _cov[2][7] = c1[2][0]*y(1, 0) + c1[2][1]*y(1, 1) + c1[2][2]*y(1, 2) - _cov[2][10]*_dt;
+    _cov[2][8] = c1[2][0]*y(2, 0) + c1[2][1]*y(2, 1) + c1[2][2]*y(2, 2) - _cov[2][11]*_dt;
 
     // P12_ = (P12 + P22 * dt) - (P13 + P23 * dt) * X' * dt - P15_ * R' * dt + P16_ * ez' * dt      (乘法: 63, 加法: 63)
     //      = P12 + (P22 - ((P13 + P23 * dt) * X' + P15_ * R') + P16_ * ez') * dt
     //      = P12 + (P22 - (c1 * X' + P15_ * R') + P16_ * ez') * dt
     _cov[0][3] += (_cov[3][3] - (c1[0][0] * x[0][0] + c1[0][1] * x[0][1] + c1[0][2] * x[0][2] +
-                                    _cov[0][12] * r[0][0] + _cov[0][13] * r[0][1] + _cov[0][14] * r[0][2])) * _dt;
+                                    _cov[0][12] * _rot(0, 0) + _cov[0][13] * _rot(0, 1) + _cov[0][14] * _rot(0, 2))) * _dt;
     _cov[0][4] += (_cov[3][4] - (c1[0][0] * x[1][0] + c1[0][1] * x[1][1] + c1[0][2] * x[1][2] +
-                                    _cov[0][12] * r[1][0] + _cov[0][13] * r[1][1] + _cov[0][14] * r[1][2])) * _dt;
+                                    _cov[0][12] * _rot(1, 0) + _cov[0][13] * _rot(1, 1) + _cov[0][14] * _rot(1, 2))) * _dt;
     _cov[0][5] += (_cov[3][5] - (c1[0][0] * x[2][0] + c1[0][1] * x[2][1] + c1[0][2] * x[2][2] +
-                                    _cov[0][12] * r[2][0] + _cov[0][13] * r[2][1] + _cov[0][14] * r[2][2]) + _cov[0][15]) * _dt;
+                                    _cov[0][12] * _rot(2, 0) + _cov[0][13] * _rot(2, 1) + _cov[0][14] * _rot(2, 2)) + _cov[0][15]) * _dt;
     _cov[1][3] += (_cov[4][3] - (c1[1][0] * x[0][0] + c1[1][1] * x[0][1] + c1[1][2] * x[0][2] +
-                                    _cov[1][12] * r[0][0] + _cov[1][13] * r[0][1] + _cov[1][14] * r[0][2])) * _dt;
+                                    _cov[1][12] * _rot(0, 0) + _cov[1][13] * _rot(0, 1) + _cov[1][14] * _rot(0, 2))) * _dt;
     _cov[1][4] += (_cov[4][4] - (c1[1][0] * x[1][0] + c1[1][1] * x[1][1] + c1[1][2] * x[1][2] +
-                                    _cov[1][12] * r[1][0] + _cov[1][13] * r[1][1] + _cov[1][14] * r[1][2])) * _dt;
+                                    _cov[1][12] * _rot(1, 0) + _cov[1][13] * _rot(1, 1) + _cov[1][14] * _rot(1, 2))) * _dt;
     _cov[1][5] += (_cov[4][5] - (c1[1][0] * x[2][0] + c1[1][1] * x[2][1] + c1[1][2] * x[2][2] +
-                                    _cov[1][12] * r[2][0] + _cov[1][13] * r[2][1] + _cov[1][14] * r[2][2]) + _cov[1][15]) * _dt;
+                                    _cov[1][12] * _rot(2, 0) + _cov[1][13] * _rot(2, 1) + _cov[1][14] * _rot(2, 2)) + _cov[1][15]) * _dt;
     _cov[2][3] += (_cov[5][3] - (c1[2][0] * x[0][0] + c1[2][1] * x[0][1] + c1[2][2] * x[0][2] +
-                                    _cov[2][12] * r[0][0] + _cov[2][13] * r[0][1] + _cov[2][14] * r[0][2])) * _dt;
+                                    _cov[2][12] * _rot(0, 0) + _cov[2][13] * _rot(0, 1) + _cov[2][14] * _rot(0, 2))) * _dt;
     _cov[2][4] += (_cov[5][4] - (c1[2][0] * x[1][0] + c1[2][1] * x[1][1] + c1[2][2] * x[1][2] +
-                                    _cov[2][12] * r[1][0] + _cov[2][13] * r[1][1] + _cov[2][14] * r[1][2])) * _dt;
+                                    _cov[2][12] * _rot(1, 0) + _cov[2][13] * _rot(1, 1) + _cov[2][14] * _rot(1, 2))) * _dt;
     _cov[2][5] += (_cov[5][5] - (c1[2][0] * x[2][0] + c1[2][1] * x[2][1] + c1[2][2] * x[2][2] +
-                                    _cov[2][12] * r[2][0] + _cov[2][13] * r[2][1] + _cov[2][14] * r[2][2]) + _cov[2][15]) * _dt;
+                                    _cov[2][12] * _rot(2, 0) + _cov[2][13] * _rot(2, 1) + _cov[2][14] * _rot(2, 2)) + _cov[2][15]) * _dt;
 
     // X * P32              (乘法: 27, 加法: 18)
     const array<array<float, 3>, 3> XP32 = {{{_cov[3][6]*x[0][0] + _cov[3][7]*x[0][1] + _cov[3][8]*x[0][2],
@@ -218,15 +234,15 @@ void ESKF::predict_covariance(const array<float, 3> &w, const array<float, 3> &a
                                               _cov[5][6]*x[2][0] + _cov[5][7]*x[2][1] + _cov[5][8]*x[2][2]}}};
 
     // R * P52              (乘法: 27, 加法: 18)
-    const array<array<float, 3>, 3> RP52 = {{{_cov[3][12]*r[0][0] + _cov[3][13]*r[0][1] + _cov[3][14]*r[0][2],
-                                              _cov[4][12]*r[0][0] + _cov[4][13]*r[0][1] + _cov[4][14]*r[0][2],
-                                              _cov[5][12]*r[0][0] + _cov[5][13]*r[0][1] + _cov[5][14]*r[0][2]},
-                                             {_cov[3][12]*r[1][0] + _cov[3][13]*r[1][1] + _cov[3][14]*r[1][2],
-                                              _cov[4][12]*r[1][0] + _cov[4][13]*r[1][1] + _cov[4][14]*r[1][2],
-                                              _cov[5][12]*r[1][0] + _cov[5][13]*r[1][1] + _cov[5][14]*r[1][2]},
-                                             {_cov[3][12]*r[2][0] + _cov[3][13]*r[2][1] + _cov[3][14]*r[2][2],
-                                              _cov[4][12]*r[2][0] + _cov[4][13]*r[2][1] + _cov[4][14]*r[2][2],
-                                              _cov[5][12]*r[2][0] + _cov[5][13]*r[2][1] + _cov[5][14]*r[2][2]}}};
+    const array<array<float, 3>, 3> RP52 = {{{_cov[3][12]*_rot(0, 0) + _cov[3][13]*_rot(0, 1) + _cov[3][14]*_rot(0, 2),
+                                              _cov[4][12]*_rot(0, 0) + _cov[4][13]*_rot(0, 1) + _cov[4][14]*_rot(0, 2),
+                                              _cov[5][12]*_rot(0, 0) + _cov[5][13]*_rot(0, 1) + _cov[5][14]*_rot(0, 2)},
+                                             {_cov[3][12]*_rot(1, 0) + _cov[3][13]*_rot(1, 1) + _cov[3][14]*_rot(1, 2),
+                                              _cov[4][12]*_rot(1, 0) + _cov[4][13]*_rot(1, 1) + _cov[4][14]*_rot(1, 2),
+                                              _cov[5][12]*_rot(1, 0) + _cov[5][13]*_rot(1, 1) + _cov[5][14]*_rot(1, 2)},
+                                             {_cov[3][12]*_rot(2, 0) + _cov[3][13]*_rot(2, 1) + _cov[3][14]*_rot(2, 2),
+                                              _cov[4][12]*_rot(2, 0) + _cov[4][13]*_rot(2, 1) + _cov[4][14]*_rot(2, 2),
+                                              _cov[5][12]*_rot(2, 0) + _cov[5][13]*_rot(2, 1) + _cov[5][14]*_rot(2, 2)}}};
 
     // X * P33              (乘法: 27, 加法: 18)
     const array<array<float, 3>, 3> XP33 = {{{_cov[6][6]*x[0][0] + _cov[6][7]*x[0][1] + _cov[6][8]*x[0][2],
@@ -240,15 +256,15 @@ void ESKF::predict_covariance(const array<float, 3> &w, const array<float, 3> &a
                                               _cov[6][8]*x[2][0] + _cov[7][8]*x[2][1] + _cov[8][8]*x[2][2]}}};
 
     // R * P53              (乘法: 27, 加法: 18)
-    const array<array<float, 3>, 3> RP53 = {{{_cov[6][12]*r[0][0] + _cov[6][13]*r[0][1] + _cov[6][14]*r[0][2],
-                                              _cov[7][12]*r[0][0] + _cov[7][13]*r[0][1] + _cov[7][14]*r[0][2],
-                                              _cov[8][12]*r[0][0] + _cov[8][13]*r[0][1] + _cov[8][14]*r[0][2]},
-                                             {_cov[6][12]*r[1][0] + _cov[6][13]*r[1][1] + _cov[6][14]*r[1][2],
-                                              _cov[7][12]*r[1][0] + _cov[7][13]*r[1][1] + _cov[7][14]*r[1][2],
-                                              _cov[8][12]*r[1][0] + _cov[8][13]*r[1][1] + _cov[8][14]*r[1][2]},
-                                             {_cov[6][12]*r[2][0] + _cov[6][13]*r[2][1] + _cov[6][14]*r[2][2],
-                                              _cov[7][12]*r[2][0] + _cov[7][13]*r[2][1] + _cov[7][14]*r[2][2],
-                                              _cov[8][12]*r[2][0] + _cov[8][13]*r[2][1] + _cov[8][14]*r[2][2]}}};
+    const array<array<float, 3>, 3> RP53 = {{{_cov[6][12]*_rot(0, 0) + _cov[6][13]*_rot(0, 1) + _cov[6][14]*_rot(0, 2),
+                                              _cov[7][12]*_rot(0, 0) + _cov[7][13]*_rot(0, 1) + _cov[7][14]*_rot(0, 2),
+                                              _cov[8][12]*_rot(0, 0) + _cov[8][13]*_rot(0, 1) + _cov[8][14]*_rot(0, 2)},
+                                             {_cov[6][12]*_rot(1, 0) + _cov[6][13]*_rot(1, 1) + _cov[6][14]*_rot(1, 2),
+                                              _cov[7][12]*_rot(1, 0) + _cov[7][13]*_rot(1, 1) + _cov[7][14]*_rot(1, 2),
+                                              _cov[8][12]*_rot(1, 0) + _cov[8][13]*_rot(1, 1) + _cov[8][14]*_rot(1, 2)},
+                                             {_cov[6][12]*_rot(2, 0) + _cov[6][13]*_rot(2, 1) + _cov[6][14]*_rot(2, 2),
+                                              _cov[7][12]*_rot(2, 0) + _cov[7][13]*_rot(2, 1) + _cov[7][14]*_rot(2, 2),
+                                              _cov[8][12]*_rot(2, 0) + _cov[8][13]*_rot(2, 1) + _cov[8][14]*_rot(2, 2)}}};
 
     // X * P34              (乘法: 27, 加法: 18)
     const array<array<float, 3>, 3> XP34 = {{{_cov[6][9]*x[0][0] + _cov[7][9]*x[0][1] + _cov[8][9]*x[0][2],
@@ -262,15 +278,15 @@ void ESKF::predict_covariance(const array<float, 3> &w, const array<float, 3> &a
                                               _cov[6][11]*x[2][0] + _cov[7][11]*x[2][1] + _cov[8][11]*x[2][2]}}};
 
     // R * P54              (乘法: 27, 加法: 18)
-    const array<array<float, 3>, 3> RP54 = {{{_cov[9][12]*r[0][0] + _cov[9][13]*r[0][1] + _cov[9][14]*r[0][2],
-                                              _cov[10][12]*r[0][0] + _cov[10][13]*r[0][1] + _cov[10][14]*r[0][2],
-                                              _cov[11][12]*r[0][0] + _cov[11][13]*r[0][1] + _cov[11][14]*r[0][2]},
-                                             {_cov[9][12]*r[1][0] + _cov[9][13]*r[1][1] + _cov[9][14]*r[1][2],
-                                              _cov[10][12]*r[1][0] + _cov[10][13]*r[1][1] + _cov[10][14]*r[1][2],
-                                              _cov[11][12]*r[1][0] + _cov[11][13]*r[1][1] + _cov[11][14]*r[1][2]},
-                                             {_cov[9][12]*r[2][0] + _cov[9][13]*r[2][1] + _cov[9][14]*r[2][2],
-                                              _cov[10][12]*r[2][0] + _cov[10][13]*r[2][1] + _cov[10][14]*r[2][2],
-                                              _cov[11][12]*r[2][0] + _cov[11][13]*r[2][1] + _cov[11][14]*r[2][2]}}};
+    const array<array<float, 3>, 3> RP54 = {{{_cov[9][12]*_rot(0, 0) + _cov[9][13]*_rot(0, 1) + _cov[9][14]*_rot(0, 2),
+                                              _cov[10][12]*_rot(0, 0) + _cov[10][13]*_rot(0, 1) + _cov[10][14]*_rot(0, 2),
+                                              _cov[11][12]*_rot(0, 0) + _cov[11][13]*_rot(0, 1) + _cov[11][14]*_rot(0, 2)},
+                                             {_cov[9][12]*_rot(1, 0) + _cov[9][13]*_rot(1, 1) + _cov[9][14]*_rot(1, 2),
+                                              _cov[10][12]*_rot(1, 0) + _cov[10][13]*_rot(1, 1) + _cov[10][14]*_rot(1, 2),
+                                              _cov[11][12]*_rot(1, 0) + _cov[11][13]*_rot(1, 1) + _cov[11][14]*_rot(1, 2)},
+                                             {_cov[9][12]*_rot(2, 0) + _cov[9][13]*_rot(2, 1) + _cov[9][14]*_rot(2, 2),
+                                              _cov[10][12]*_rot(2, 0) + _cov[10][13]*_rot(2, 1) + _cov[10][14]*_rot(2, 2),
+                                              _cov[11][12]*_rot(2, 0) + _cov[11][13]*_rot(2, 1) + _cov[11][14]*_rot(2, 2)}}};
 
     // X * P35              (乘法: 27, 加法: 18)
     const array<array<float, 3>, 3> XP35 = {{{_cov[6][12]*x[0][0] + _cov[7][12]*x[0][1] + _cov[8][12]*x[0][2],
@@ -284,15 +300,15 @@ void ESKF::predict_covariance(const array<float, 3> &w, const array<float, 3> &a
                                               _cov[6][14]*x[2][0] + _cov[7][14]*x[2][1] + _cov[8][14]*x[2][2]}}};
 
     // R * P55              (乘法: 27, 加法: 18)
-    const array<array<float, 3>, 3> RP55 = {{{_cov[12][12]*r[0][0] + _cov[12][13]*r[0][1] + _cov[12][14]*r[0][2],
-                                              _cov[12][13]*r[0][0] + _cov[13][13]*r[0][1] + _cov[13][14]*r[0][2],
-                                              _cov[12][14]*r[0][0] + _cov[13][14]*r[0][1] + _cov[14][14]*r[0][2]},
-                                             {_cov[12][12]*r[1][0] + _cov[12][13]*r[1][1] + _cov[12][14]*r[1][2],
-                                              _cov[12][13]*r[1][0] + _cov[13][13]*r[1][1] + _cov[13][14]*r[1][2],
-                                              _cov[12][14]*r[1][0] + _cov[13][14]*r[1][1] + _cov[14][14]*r[1][2]},
-                                             {_cov[12][12]*r[2][0] + _cov[12][13]*r[2][1] + _cov[12][14]*r[2][2],
-                                              _cov[12][13]*r[2][0] + _cov[13][13]*r[2][1] + _cov[13][14]*r[2][2],
-                                              _cov[12][14]*r[2][0] + _cov[13][14]*r[2][1] + _cov[14][14]*r[2][2]}}};
+    const array<array<float, 3>, 3> RP55 = {{{_cov[12][12]*_rot(0, 0) + _cov[12][13]*_rot(0, 1) + _cov[12][14]*_rot(0, 2),
+                                              _cov[12][13]*_rot(0, 0) + _cov[13][13]*_rot(0, 1) + _cov[13][14]*_rot(0, 2),
+                                              _cov[12][14]*_rot(0, 0) + _cov[13][14]*_rot(0, 1) + _cov[14][14]*_rot(0, 2)},
+                                             {_cov[12][12]*_rot(1, 0) + _cov[12][13]*_rot(1, 1) + _cov[12][14]*_rot(1, 2),
+                                              _cov[12][13]*_rot(1, 0) + _cov[13][13]*_rot(1, 1) + _cov[13][14]*_rot(1, 2),
+                                              _cov[12][14]*_rot(1, 0) + _cov[13][14]*_rot(1, 1) + _cov[14][14]*_rot(1, 2)},
+                                             {_cov[12][12]*_rot(2, 0) + _cov[12][13]*_rot(2, 1) + _cov[12][14]*_rot(2, 2),
+                                              _cov[12][13]*_rot(2, 0) + _cov[13][13]*_rot(2, 1) + _cov[13][14]*_rot(2, 2),
+                                              _cov[12][14]*_rot(2, 0) + _cov[13][14]*_rot(2, 1) + _cov[14][14]*_rot(2, 2)}}};
 
     // X * P36              (乘法: 9, 加法: 6)
     const array<float, 3> XP36 = {_cov[6][15]*x[0][0] + _cov[7][15]*x[0][1] + _cov[8][15]*x[0][2],
@@ -300,9 +316,9 @@ void ESKF::predict_covariance(const array<float, 3> &w, const array<float, 3> &a
                                   _cov[6][15]*x[2][0] + _cov[7][15]*x[2][1] + _cov[8][15]*x[2][2]};
 
     // R * P56              (乘法: 9, 加法: 6)
-    const array<float, 3> RP56 = {_cov[12][15]*r[0][0] + _cov[13][15]*r[0][1] + _cov[14][15]*r[0][2],
-                                  _cov[12][15]*r[1][0] + _cov[13][15]*r[1][1] + _cov[14][15]*r[1][2],
-                                  _cov[12][15]*r[2][0] + _cov[13][15]*r[2][1] + _cov[14][15]*r[2][2]};
+    const array<float, 3> RP56 = {_cov[12][15]*_rot(0, 0) + _cov[13][15]*_rot(0, 1) + _cov[14][15]*_rot(0, 2),
+                                  _cov[12][15]*_rot(1, 0) + _cov[13][15]*_rot(1, 1) + _cov[14][15]*_rot(1, 2),
+                                  _cov[12][15]*_rot(2, 0) + _cov[13][15]*_rot(2, 1) + _cov[14][15]*_rot(2, 2)};
 
     // ez * P62
     const array<float, 3> ezP62 = {_cov[3][15], _cov[4][15], _cov[5][15]};
@@ -327,12 +343,12 @@ void ESKF::predict_covariance(const array<float, 3> &w, const array<float, 3> &a
     const float XP33XT22 = XP33[2][0]*x[2][0] + XP33[2][1]*x[2][1] + XP33[2][2]*x[2][2];
 
     // R * P55 * R'         (乘法: 18, 加法: 12)
-    const float RP55RT00 = RP55[0][0]*r[0][0] + RP55[0][1]*r[0][1] + RP55[0][2]*r[0][2];
-    const float RP55RT01 = RP55[0][0]*r[1][0] + RP55[0][1]*r[1][1] + RP55[0][2]*r[1][2];
-    const float RP55RT02 = RP55[0][0]*r[2][0] + RP55[0][1]*r[2][1] + RP55[0][2]*r[2][2];
-    const float RP55RT11 = RP55[1][0]*r[1][0] + RP55[1][1]*r[1][1] + RP55[1][2]*r[1][2];
-    const float RP55RT12 = RP55[1][0]*r[2][0] + RP55[1][1]*r[2][1] + RP55[1][2]*r[2][2];
-    const float RP55RT22 = RP55[2][0]*r[2][0] + RP55[2][1]*r[2][1] + RP55[2][2]*r[2][2];
+    const float RP55RT00 = RP55[0][0]*_rot(0, 0) + RP55[0][1]*_rot(0, 1) + RP55[0][2]*_rot(0, 2);
+    const float RP55RT01 = RP55[0][0]*_rot(1, 0) + RP55[0][1]*_rot(1, 1) + RP55[0][2]*_rot(1, 2);
+    const float RP55RT02 = RP55[0][0]*_rot(2, 0) + RP55[0][1]*_rot(2, 1) + RP55[0][2]*_rot(2, 2);
+    const float RP55RT11 = RP55[1][0]*_rot(1, 0) + RP55[1][1]*_rot(1, 1) + RP55[1][2]*_rot(1, 2);
+    const float RP55RT12 = RP55[1][0]*_rot(2, 0) + RP55[1][1]*_rot(2, 1) + RP55[1][2]*_rot(2, 2);
+    const float RP55RT22 = RP55[2][0]*_rot(2, 0) + RP55[2][1]*_rot(2, 1) + RP55[2][2]*_rot(2, 2);
 
     // P22_ = P22 - (X * P32 + P23 * X') * dt - (R * P52 + P25 * R') * dt + (ez * P62 + P26 * ez') * dt
     //        + X * P33 * X' * dt^2 + (R * P53 * X' + X * P35 * R') * dt^2 - (ez * P63 * X' + X * P36 * ez') * dt^2
@@ -353,7 +369,7 @@ void ESKF::predict_covariance(const array<float, 3> &w, const array<float, 3> &a
     // P26_ = P26 - XP36 * dt - R * P56 * dt + ez * P66 * dt        (乘法: 3, 加法: 6)
     _cov[3][15] += -(XP36[0] + RP56[0]) * _dt;
     _cov[4][15] += -(XP36[1] + RP56[1]) * _dt;
-    _cov[5][15] += (_cov[15][15] - XP36[2] - RP56[2]) * _dt;
+    _cov[5][15] += (_cov[15][15] - (XP36[2] + RP56[2])) * _dt;
 
     // P25_ = P25 - XP35 * dt - R * P55 * dt + ez * P65 * dt        (乘法: 9, 加法: 18)
     _cov[3][12] += -(XP35[0][0] + RP55[0][0]) * _dt;
@@ -362,9 +378,9 @@ void ESKF::predict_covariance(const array<float, 3> &w, const array<float, 3> &a
     _cov[4][12] += -(XP35[1][0] + RP55[1][0]) * _dt;
     _cov[4][13] += -(XP35[1][1] + RP55[1][1]) * _dt;
     _cov[4][14] += -(XP35[1][2] + RP55[1][2]) * _dt;
-    _cov[5][12] += (_cov[12][15] - XP35[2][0] - RP55[2][0]) * _dt;
-    _cov[5][13] += (_cov[13][15] - XP35[2][1] - RP55[2][1]) * _dt;
-    _cov[5][14] += (_cov[14][15] - XP35[2][2] - RP55[2][2]) * _dt;
+    _cov[5][12] += (_cov[12][15] - (XP35[2][0] + RP55[2][0])) * _dt;
+    _cov[5][13] += (_cov[13][15] - (XP35[2][1] + RP55[2][1])) * _dt;
+    _cov[5][14] += (_cov[14][15] - (XP35[2][2] + RP55[2][2])) * _dt;
 
     // P24_ = P24 - XP34 * dt - R * P54 * dt + ez * P64 * dt        (乘法: 9, 加法: 18)
     _cov[3][9] += -(XP34[0][0] + RP54[0][0]) * _dt;
@@ -373,9 +389,9 @@ void ESKF::predict_covariance(const array<float, 3> &w, const array<float, 3> &a
     _cov[4][9] += -(XP34[1][0] + RP54[1][0]) * _dt;
     _cov[4][10] += -(XP34[1][1] + RP54[1][1]) * _dt;
     _cov[4][11] += -(XP34[1][2] + RP54[1][2]) * _dt;
-    _cov[5][9] += (_cov[9][15] - XP34[2][0] - RP54[2][0]) * _dt;
-    _cov[5][10] += (_cov[10][15] - XP34[2][1] - RP54[2][1]) * _dt;
-    _cov[5][11] += (_cov[11][15] - XP34[2][2] - RP54[2][2]) * _dt;
+    _cov[5][9] += (_cov[9][15] - (XP34[2][0] + RP54[2][0])) * _dt;
+    _cov[5][10] += (_cov[10][15] - (XP34[2][1] + RP54[2][1])) * _dt;
+    _cov[5][11] += (_cov[11][15] - (XP34[2][2] + RP54[2][2])) * _dt;
 
     // (P23 - X * P33 * dt - R * P53 * dt + ez * P63 * dt)          (乘法: 9, 加法: 18)
     const array<array<float, 3>, 3> c2 = {{{_cov[3][6] - (XP33[0][0] + RP53[0][0]) * _dt,
@@ -389,61 +405,61 @@ void ESKF::predict_covariance(const array<float, 3> &w, const array<float, 3> &a
                                             _cov[5][8] + (_cov[8][15] - XP33[2][2] - RP53[2][2]) * _dt}}};
 
     // P23_ = (P23 - X * P33 * dt - R * P53 * dt + ez * P63 * dt) * Y' - P24_ * dt          (乘法: 36, 加法: 27)
-    _cov[3][6] = c2[0][0]*y[0][0] + c2[0][1]*y[0][1] + c2[0][2]*y[0][2] - _cov[3][9] * _dt;
-    _cov[3][7] = c2[0][0]*y[1][0] + c2[0][1]*y[1][1] + c2[0][2]*y[1][2] - _cov[3][10] * _dt;
-    _cov[3][8] = c2[0][0]*y[2][0] + c2[0][1]*y[2][1] + c2[0][2]*y[2][2] - _cov[3][11] * _dt;
-    _cov[4][6] = c2[1][0]*y[0][0] + c2[1][1]*y[0][1] + c2[1][2]*y[0][2] - _cov[4][9] * _dt;
-    _cov[4][7] = c2[1][0]*y[1][0] + c2[1][1]*y[1][1] + c2[1][2]*y[1][2] - _cov[4][10] * _dt;
-    _cov[4][8] = c2[1][0]*y[2][0] + c2[1][1]*y[2][1] + c2[1][2]*y[2][2] - _cov[4][11] * _dt;
-    _cov[5][6] = c2[2][0]*y[0][0] + c2[2][1]*y[0][1] + c2[2][2]*y[0][2] - _cov[5][9] * _dt;
-    _cov[5][7] = c2[2][0]*y[1][0] + c2[2][1]*y[1][1] + c2[2][2]*y[1][2] - _cov[5][10] * _dt;
-    _cov[5][8] = c2[2][0]*y[2][0] + c2[2][1]*y[2][1] + c2[2][2]*y[2][2] - _cov[5][11] * _dt;
+    _cov[3][6] = c2[0][0]*y(0, 0) + c2[0][1]*y(0, 1) + c2[0][2]*y(0, 2) - _cov[3][9] * _dt;
+    _cov[3][7] = c2[0][0]*y(1, 0) + c2[0][1]*y(1, 1) + c2[0][2]*y(1, 2) - _cov[3][10] * _dt;
+    _cov[3][8] = c2[0][0]*y(2, 0) + c2[0][1]*y(2, 1) + c2[0][2]*y(2, 2) - _cov[3][11] * _dt;
+    _cov[4][6] = c2[1][0]*y(0, 0) + c2[1][1]*y(0, 1) + c2[1][2]*y(0, 2) - _cov[4][9] * _dt;
+    _cov[4][7] = c2[1][0]*y(1, 0) + c2[1][1]*y(1, 1) + c2[1][2]*y(1, 2) - _cov[4][10] * _dt;
+    _cov[4][8] = c2[1][0]*y(2, 0) + c2[1][1]*y(2, 1) + c2[1][2]*y(2, 2) - _cov[4][11] * _dt;
+    _cov[5][6] = c2[2][0]*y(0, 0) + c2[2][1]*y(0, 1) + c2[2][2]*y(0, 2) - _cov[5][9] * _dt;
+    _cov[5][7] = c2[2][0]*y(1, 0) + c2[2][1]*y(1, 1) + c2[2][2]*y(1, 2) - _cov[5][10] * _dt;
+    _cov[5][8] = c2[2][0]*y(2, 0) + c2[2][1]*y(2, 1) + c2[2][2]*y(2, 2) - _cov[5][11] * _dt;
 
     // Y * P36              (乘法: 9, 加法: 6)
-    const array<float, 3> YP36 = {y[0][0] * _cov[6][15] + y[0][1] * _cov[7][15] + y[0][2] * _cov[8][15],
-                                  y[1][0] * _cov[6][15] + y[1][1] * _cov[7][15] + y[1][2] * _cov[8][15],
-                                  y[2][0] * _cov[6][15] + y[2][1] * _cov[7][15] + y[2][2] * _cov[8][15]};
+    const array<float, 3> YP36 = {y(0, 0) * _cov[6][15] + y(0, 1) * _cov[7][15] + y(0, 2) * _cov[8][15],
+                                  y(1, 0) * _cov[6][15] + y(1, 1) * _cov[7][15] + y(1, 2) * _cov[8][15],
+                                  y(2, 0) * _cov[6][15] + y(2, 1) * _cov[7][15] + y(2, 2) * _cov[8][15]};
 
     // Y * P35              (乘法: 27, 加法: 18)
-    const array<array<float, 3>, 3> YP35 = {{{_cov[6][12]*y[0][0] + _cov[7][12]*y[0][1] + _cov[8][12]*y[0][2],
-                                              _cov[6][13]*y[0][0] + _cov[7][13]*y[0][1] + _cov[8][13]*y[0][2],
-                                              _cov[6][14]*y[0][0] + _cov[7][14]*y[0][1] + _cov[8][14]*y[0][2]},
-                                             {_cov[6][12]*y[1][0] + _cov[7][12]*y[1][1] + _cov[8][12]*y[1][2],
-                                              _cov[6][13]*y[1][0] + _cov[7][13]*y[1][1] + _cov[8][13]*y[1][2],
-                                              _cov[6][14]*y[1][0] + _cov[7][14]*y[1][1] + _cov[8][14]*y[1][2]},
-                                             {_cov[6][12]*y[2][0] + _cov[7][12]*y[2][1] + _cov[8][12]*y[2][2],
-                                              _cov[6][13]*y[2][0] + _cov[7][13]*y[2][1] + _cov[8][13]*y[2][2],
-                                              _cov[6][14]*y[2][0] + _cov[7][14]*y[2][1] + _cov[8][14]*y[2][2]}}};
+    const array<array<float, 3>, 3> YP35 = {{{_cov[6][12]*y(0, 0) + _cov[7][12]*y(0, 1) + _cov[8][12]*y(0, 2),
+                                              _cov[6][13]*y(0, 0) + _cov[7][13]*y(0, 1) + _cov[8][13]*y(0, 2),
+                                              _cov[6][14]*y(0, 0) + _cov[7][14]*y(0, 1) + _cov[8][14]*y(0, 2)},
+                                             {_cov[6][12]*y(1, 0) + _cov[7][12]*y(1, 1) + _cov[8][12]*y(1, 2),
+                                              _cov[6][13]*y(1, 0) + _cov[7][13]*y(1, 1) + _cov[8][13]*y(1, 2),
+                                              _cov[6][14]*y(1, 0) + _cov[7][14]*y(1, 1) + _cov[8][14]*y(1, 2)},
+                                             {_cov[6][12]*y(2, 0) + _cov[7][12]*y(2, 1) + _cov[8][12]*y(2, 2),
+                                              _cov[6][13]*y(2, 0) + _cov[7][13]*y(2, 1) + _cov[8][13]*y(2, 2),
+                                              _cov[6][14]*y(2, 0) + _cov[7][14]*y(2, 1) + _cov[8][14]*y(2, 2)}}};
 
     // Y * P34              (乘法: 27, 加法: 18)
-    const array<array<float, 3>, 3> YP34 = {{{_cov[6][9]*y[0][0] + _cov[7][9]*y[0][1] + _cov[8][9]*y[0][2],
-                                              _cov[6][10]*y[0][0] + _cov[7][10]*y[0][1] + _cov[8][10]*y[0][2],
-                                              _cov[6][11]*y[0][0] + _cov[7][11]*y[0][1] + _cov[8][11]*y[0][2]},
-                                             {_cov[6][9]*y[1][0] + _cov[7][9]*y[1][1] + _cov[8][9]*y[1][2],
-                                              _cov[6][10]*y[1][0] + _cov[7][10]*y[1][1] + _cov[8][10]*y[1][2],
-                                              _cov[6][11]*y[1][0] + _cov[7][11]*y[1][1] + _cov[8][11]*y[1][2]},
-                                             {_cov[6][9]*y[2][0] + _cov[7][9]*y[2][1] + _cov[8][9]*y[2][2],
-                                              _cov[6][10]*y[2][0] + _cov[7][10]*y[2][1] + _cov[8][10]*y[2][2],
-                                              _cov[6][11]*y[2][0] + _cov[7][11]*y[2][1] + _cov[8][11]*y[2][2]}}};
+    const array<array<float, 3>, 3> YP34 = {{{_cov[6][9]*y(0, 0) + _cov[7][9]*y(0, 1) + _cov[8][9]*y(0, 2),
+                                              _cov[6][10]*y(0, 0) + _cov[7][10]*y(0, 1) + _cov[8][10]*y(0, 2),
+                                              _cov[6][11]*y(0, 0) + _cov[7][11]*y(0, 1) + _cov[8][11]*y(0, 2)},
+                                             {_cov[6][9]*y(1, 0) + _cov[7][9]*y(1, 1) + _cov[8][9]*y(1, 2),
+                                              _cov[6][10]*y(1, 0) + _cov[7][10]*y(1, 1) + _cov[8][10]*y(1, 2),
+                                              _cov[6][11]*y(1, 0) + _cov[7][11]*y(1, 1) + _cov[8][11]*y(1, 2)},
+                                             {_cov[6][9]*y(2, 0) + _cov[7][9]*y(2, 1) + _cov[8][9]*y(2, 2),
+                                              _cov[6][10]*y(2, 0) + _cov[7][10]*y(2, 1) + _cov[8][10]*y(2, 2),
+                                              _cov[6][11]*y(2, 0) + _cov[7][11]*y(2, 1) + _cov[8][11]*y(2, 2)}}};
 
     // Y * P33              (乘法: 27, 加法: 18)
-    const array<array<float, 3>, 3> YP33 = {{{_cov[6][6]*y[0][0] + _cov[6][7]*y[0][1] + _cov[6][8]*y[0][2],
-                                              _cov[6][7]*y[0][0] + _cov[7][7]*y[0][1] + _cov[7][8]*y[0][2],
-                                              _cov[6][8]*y[0][0] + _cov[7][8]*y[0][1] + _cov[8][8]*y[0][2]},
-                                             {_cov[6][6]*y[1][0] + _cov[6][7]*y[1][1] + _cov[6][8]*y[1][2],
-                                              _cov[6][7]*y[1][0] + _cov[7][7]*y[1][1] + _cov[7][8]*y[1][2],
-                                              _cov[6][8]*y[1][0] + _cov[7][8]*y[1][1] + _cov[8][8]*y[1][2]},
-                                             {_cov[6][6]*y[2][0] + _cov[6][7]*y[2][1] + _cov[6][8]*y[2][2],
-                                              _cov[6][7]*y[2][0] + _cov[7][7]*y[2][1] + _cov[7][8]*y[2][2],
-                                              _cov[6][8]*y[2][0] + _cov[7][8]*y[2][1] + _cov[8][8]*y[2][2]}}};
+    const array<array<float, 3>, 3> YP33 = {{{_cov[6][6]*y(0, 0) + _cov[6][7]*y(0, 1) + _cov[6][8]*y(0, 2),
+                                              _cov[6][7]*y(0, 0) + _cov[7][7]*y(0, 1) + _cov[7][8]*y(0, 2),
+                                              _cov[6][8]*y(0, 0) + _cov[7][8]*y(0, 1) + _cov[8][8]*y(0, 2)},
+                                             {_cov[6][6]*y(1, 0) + _cov[6][7]*y(1, 1) + _cov[6][8]*y(1, 2),
+                                              _cov[6][7]*y(1, 0) + _cov[7][7]*y(1, 1) + _cov[7][8]*y(1, 2),
+                                              _cov[6][8]*y(1, 0) + _cov[7][8]*y(1, 1) + _cov[8][8]*y(1, 2)},
+                                             {_cov[6][6]*y(2, 0) + _cov[6][7]*y(2, 1) + _cov[6][8]*y(2, 2),
+                                              _cov[6][7]*y(2, 0) + _cov[7][7]*y(2, 1) + _cov[7][8]*y(2, 2),
+                                              _cov[6][8]*y(2, 0) + _cov[7][8]*y(2, 1) + _cov[8][8]*y(2, 2)}}};
 
     // Y * P33 * Y'         (乘法: 18, 加法: 12)
-    const float YP33YT00 = YP33[0][0]*y[0][0] + YP33[0][1]*y[0][1] + YP33[0][2]*y[0][2];
-    const float YP33YT01 = YP33[0][0]*y[1][0] + YP33[0][1]*y[1][1] + YP33[0][2]*y[1][2];
-    const float YP33YT02 = YP33[0][0]*y[2][0] + YP33[0][1]*y[2][1] + YP33[0][2]*y[2][2];
-    const float YP33YT11 = YP33[1][0]*y[1][0] + YP33[1][1]*y[1][1] + YP33[1][2]*y[1][2];
-    const float YP33YT12 = YP33[1][0]*y[2][0] + YP33[1][1]*y[2][1] + YP33[1][2]*y[2][2];
-    const float YP33YT22 = YP33[2][0]*y[2][0] + YP33[2][1]*y[2][1] + YP33[2][2]*y[2][2];
+    const float YP33YT00 = YP33[0][0]*y(0, 0) + YP33[0][1]*y(0, 1) + YP33[0][2]*y(0, 2);
+    const float YP33YT01 = YP33[0][0]*y(1, 0) + YP33[0][1]*y(1, 1) + YP33[0][2]*y(1, 2);
+    const float YP33YT02 = YP33[0][0]*y(2, 0) + YP33[0][1]*y(2, 1) + YP33[0][2]*y(2, 2);
+    const float YP33YT11 = YP33[1][0]*y(1, 0) + YP33[1][1]*y(1, 1) + YP33[1][2]*y(1, 2);
+    const float YP33YT12 = YP33[1][0]*y(2, 0) + YP33[1][1]*y(2, 1) + YP33[1][2]*y(2, 2);
+    const float YP33YT22 = YP33[2][0]*y(2, 0) + YP33[2][1]*y(2, 1) + YP33[2][2]*y(2, 2);
 
     // P33_ = Y * P33 * Y' - (P43 * Y' + Y * P34) * dt + P44 * dt^2         (乘法: 12, 加法: 18)
     _cov[6][6] = YP33YT00 - (YP34[0][0] + YP34[0][0]) * _dt + _cov[9][9] * _dt2;
@@ -492,37 +508,37 @@ void ESKF::predict_covariance(const array<float, 3> &w, const array<float, 3> &a
         } else {
             float sx = _q_cov[3] * _dt2;
             float sz = _q_cov[5] * _dt2;
-            float r00_sx = _rot[0][0] * sx;
-            float r01_sx = _rot[0][1] * sx;
-            float r02_sz = _rot[0][2] * sz;
-            float r00_sx_r10_plus_r01_sx_r11_plus_r02_sz_r12 = r00_sx * _rot[1][0] + r01_sx * _rot[1][1] + r02_sz * _rot[1][2];
-            float r00_sx_r20_plus_r01_sx_r21_plus_r02_sz_r22 = r00_sx * _rot[2][0] + r01_sx * _rot[2][1] + r02_sz * _rot[2][2];
-            float r10_r20_sx_plus_r11_r21_sx_plus_r12_r22_sz = (_rot[1][0] * _rot[2][0] + _rot[1][1] * _rot[2][1]) * sx + _rot[1][2] * _rot[2][2] * sz;
+            float r00_sx = _rot(0, 0) * sx;
+            float r01_sx = _rot(0, 1) * sx;
+            float r02_sz = _rot(0, 2) * sz;
+            float r00_sx_r10_plus_r01_sx_r11_plus_r02_sz_r12 = r00_sx * _rot(1, 0) + r01_sx * _rot(1, 1) + r02_sz * _rot(1, 2);
+            float r00_sx_r20_plus_r01_sx_r21_plus_r02_sz_r22 = r00_sx * _rot(2, 0) + r01_sx * _rot(2, 1) + r02_sz * _rot(2, 2);
+            float r10_r20_sx_plus_r11_r21_sx_plus_r12_r22_sz = (_rot(1, 0) * _rot(2, 0) + _rot(1, 1) * _rot(2, 1)) * sx + _rot(1, 2) * _rot(2, 2) * sz;
 
-            _cov[3][3] += kahan_summation(_cov[3][3], (_rot[0][0] * _rot[0][0] + _rot[0][1] * _rot[0][1]) * sx + _rot[0][2] * _rot[0][2] * sz, _accumulator_cov[3]);
+            _cov[3][3] += kahan_summation(_cov[3][3], (_rot(0, 0) * _rot(0, 0) + _rot(0, 1) * _rot(0, 1)) * sx + _rot(0, 2) * _rot(0, 2) * sz, _accumulator_cov[3]);
             _cov[3][4] += r00_sx_r10_plus_r01_sx_r11_plus_r02_sz_r12;
             _cov[3][5] += r00_sx_r20_plus_r01_sx_r21_plus_r02_sz_r22;
-            _cov[4][4] += kahan_summation(_cov[4][4], (_rot[1][0] * _rot[1][0] + _rot[1][1] * _rot[1][1]) * sx + _rot[1][2] * _rot[1][2] * sz, _accumulator_cov[4]);
+            _cov[4][4] += kahan_summation(_cov[4][4], (_rot(1, 0) * _rot(1, 0) + _rot(1, 1) * _rot(1, 1)) * sx + _rot(1, 2) * _rot(1, 2) * sz, _accumulator_cov[4]);
             _cov[4][5] += r10_r20_sx_plus_r11_r21_sx_plus_r12_r22_sz;
-            _cov[5][5] += kahan_summation(_cov[5][5], (_rot[2][0] * _rot[2][0] + _rot[2][1] * _rot[2][1]) * sx + _rot[2][2] * _rot[2][2] * sz, _accumulator_cov[5]);
+            _cov[5][5] += kahan_summation(_cov[5][5], (_rot(2, 0) * _rot(2, 0) + _rot(2, 1) * _rot(2, 1)) * sx + _rot(2, 2) * _rot(2, 2) * sz, _accumulator_cov[5]);
         }
     } else {
         float sx = _q_cov[3] * _dt2;
         float sy = _q_cov[4] * _dt2;
         float sz = _q_cov[5] * _dt2;
-        float r00_sx = _rot[0][0] * sx;
-        float r01_sy = _rot[0][1] * sy;
-        float r02_sz = _rot[0][2] * sz;
-        float r00_sx_r10_plus_r01_sy_r11_plus_r02_sz_r12 = r00_sx * _rot[1][0] + r01_sy * _rot[1][1] + r02_sz * _rot[1][2];
-        float r00_sx_r20_plus_r01_sy_r21_plus_r02_sz_r22 = r00_sx * _rot[2][0] + r01_sy * _rot[2][1] + r02_sz * _rot[2][2];
-        float r10_r20_sx_plus_r11_r21_sy_plus_r12_r22_sz = _rot[1][0] * _rot[2][0] * sx + _rot[1][1] * _rot[2][1] * sy + _rot[1][2] * _rot[2][2] * sz;
+        float r00_sx = _rot(0, 0) * sx;
+        float r01_sy = _rot(0, 1) * sy;
+        float r02_sz = _rot(0, 2) * sz;
+        float r00_sx_r10_plus_r01_sy_r11_plus_r02_sz_r12 = r00_sx * _rot(1, 0) + r01_sy * _rot(1, 1) + r02_sz * _rot(1, 2);
+        float r00_sx_r20_plus_r01_sy_r21_plus_r02_sz_r22 = r00_sx * _rot(2, 0) + r01_sy * _rot(2, 1) + r02_sz * _rot(2, 2);
+        float r10_r20_sx_plus_r11_r21_sy_plus_r12_r22_sz = _rot(1, 0) * _rot(2, 0) * sx + _rot(1, 1) * _rot(2, 1) * sy + _rot(1, 2) * _rot(2, 2) * sz;
         
-        _cov[3][3] += kahan_summation(_cov[3][3], _rot[0][0] * _rot[0][0] * sx + _rot[0][1] * _rot[0][1] * sy + _rot[0][2] * _rot[0][2] * sz, _accumulator_cov[3]);
+        _cov[3][3] += kahan_summation(_cov[3][3], _rot(0, 0) * _rot(0, 0) * sx + _rot(0, 1) * _rot(0, 1) * sy + _rot(0, 2) * _rot(0, 2) * sz, _accumulator_cov[3]);
         _cov[3][4] += r00_sx_r10_plus_r01_sy_r11_plus_r02_sz_r12;
         _cov[3][5] += r00_sx_r20_plus_r01_sy_r21_plus_r02_sz_r22;
-        _cov[4][4] += kahan_summation(_cov[4][4], _rot[1][0] * _rot[1][0] * sx + _rot[1][1] * _rot[1][1] * sy + _rot[1][2] * _rot[1][2] * sz, _accumulator_cov[4]);
+        _cov[4][4] += kahan_summation(_cov[4][4], _rot(1, 0) * _rot(1, 0) * sx + _rot(1, 1) * _rot(1, 1) * sy + _rot(1, 2) * _rot(1, 2) * sz, _accumulator_cov[4]);
         _cov[4][5] += r10_r20_sx_plus_r11_r21_sy_plus_r12_r22_sz;
-        _cov[5][5] += kahan_summation(_cov[5][5], _rot[2][0] * _rot[2][0] * sx + _rot[2][1] * _rot[2][1] * sy + _rot[2][2] * _rot[2][2] * sz, _accumulator_cov[5]);
+        _cov[5][5] += kahan_summation(_cov[5][5], _rot(2, 0) * _rot(2, 0) * sx + _rot(2, 1) * _rot(2, 1) * sy + _rot(2, 2) * _rot(2, 2) * sz, _accumulator_cov[5]);
     }
     _cov[6][6] = kahan_summation(_cov[6][6], _q_cov[6] * _dt2, _accumulator_cov[6]);
     _cov[7][7] = kahan_summation(_cov[7][7], _q_cov[7] * _dt2, _accumulator_cov[7]);
@@ -538,8 +554,8 @@ void ESKF::predict_covariance(const array<float, 3> &w, const array<float, 3> &a
     regular_covariance_to_symmetric();
 }
 
-unsigned char ESKF::fuse_position(const array<float, 3> &pos, const array<float, 3> &w, const array<float, 3> &a, 
-                                  const array<float, 3> &dis, const array<float, 3> &noise_std, const array<float, 3> &gate) {
+unsigned char ESKF::fuse_position(const Vector3f &pos, const Vector3f &w, const Vector3f &a, 
+                                  const Vector3f &dis, const Vector3f &noise_std, const Vector3f &gate) {
     /*
     s = [p, v, R, bg, ba, g]
     δs = [δp, δv, δθ, δbg, δba, δg]
@@ -578,7 +594,7 @@ unsigned char ESKF::fuse_position(const array<float, 3> &pos, const array<float,
         */
 
         // -R * dis^
-        const array<float, 3> minus_rot_d_hat = {_rot[dim][2]*dis[1] - _rot[dim][1]*dis[2], _rot[dim][0]*dis[2] - _rot[dim][2]*dis[0], _rot[dim][1]*dis[0] - _rot[dim][0]*dis[1]};
+        const array<float, 3> minus_rot_d_hat = {_rot(dim, 2)*dis[1] - _rot(dim, 1)*dis[2], _rot(dim, 0)*dis[2] - _rot(dim, 2)*dis[0], _rot(dim, 1)*dis[0] - _rot(dim, 0)*dis[1]};
 
         // H * P  or  P * H'
         const float cov_1_dim = (dim == 2) ? _cov[1][dim] : _cov[dim][1];
@@ -604,7 +620,7 @@ unsigned char ESKF::fuse_position(const array<float, 3> &pos, const array<float,
 
         // h = p + R * dis
         // e = y - h = pos - (p + R * dis)
-        const float obs_error = pos[dim] - (_state[dim] + _rot[dim][0] * dis[0] + _rot[dim][1] * dis[1] + _rot[dim][2] * dis[2]);
+        const float obs_error = pos[dim] - (_p[dim] + _rot(dim, 0) * dis[0] + _rot(dim, 1) * dis[1] + _rot(dim, 2) * dis[2]);
 
         /*
         K = P * H' * (H * P * H' + R)^-1
@@ -630,8 +646,8 @@ unsigned char ESKF::fuse_position(const array<float, 3> &pos, const array<float,
     return info;
 }
 
-unsigned char ESKF::fuse_velocity(const array<float, 3> &vel, const array<float, 3> &w, const array<float, 3> &a, 
-                                  const array<float, 3> &dis, const array<float, 3> &noise_std, const array<float, 3> &gate) {
+unsigned char ESKF::fuse_velocity(const Vector3f &vel, const Vector3f &w, const Vector3f &a, 
+                                  const Vector3f &dis, const Vector3f &noise_std, const Vector3f &gate) {
     /*
     s = [p, v, R, bg, ba, g]
     δs = [δp, δv, δθ, δbg, δba, δg]
@@ -649,7 +665,7 @@ unsigned char ESKF::fuse_velocity(const array<float, 3> &vel, const array<float,
     unsigned char info = 0;
 
     // (w-bg)^ * dis
-    const array<float, 3> w_corr = {w[0] - _state[6], w[1] - _state[7], w[2] - _state[8]};
+    const array<float, 3> w_corr = {w[0] - _bg[0], w[1] - _bg[1], w[2] - _bg[2]};
     const array<float, 3> w_corr_cross_d = {w_corr[1] * dis[2] - w_corr[2] * dis[1], 
                                             w_corr[2] * dis[0] - w_corr[0] * dis[2], 
                                             w_corr[0] * dis[1] - w_corr[1] * dis[0]};
@@ -670,14 +686,14 @@ unsigned char ESKF::fuse_velocity(const array<float, 3> &vel, const array<float,
         */
 
         // R * dis^
-        const array<float, 3> rot_d_hat = {_rot[dim][1]*dis[2] - _rot[dim][2]*dis[1], 
-                                           _rot[dim][2]*dis[0] - _rot[dim][0]*dis[2], 
-                                           _rot[dim][0]*dis[1] - _rot[dim][1]*dis[0]};
+        const array<float, 3> rot_d_hat = {_rot(dim, 1)*dis[2] - _rot(dim, 2)*dis[1], 
+                                           _rot(dim, 2)*dis[0] - _rot(dim, 0)*dis[2], 
+                                           _rot(dim, 0)*dis[1] - _rot(dim, 1)*dis[0]};
 
         // R * (dis^*(w-bg))^ = - R * ((w-bg)^*dis)^
-        const array<float, 3> rot_d_cross_w_corr_hat = {_rot[dim][2]*w_corr_cross_d[1] - _rot[dim][1]*w_corr_cross_d[2], 
-                                                        _rot[dim][0]*w_corr_cross_d[2] - _rot[dim][2]*w_corr_cross_d[0], 
-                                                        _rot[dim][1]*w_corr_cross_d[0] - _rot[dim][0]*w_corr_cross_d[1]};
+        const array<float, 3> rot_d_cross_w_corr_hat = {_rot(dim, 2)*w_corr_cross_d[1] - _rot(dim, 1)*w_corr_cross_d[2], 
+                                                        _rot(dim, 0)*w_corr_cross_d[2] - _rot(dim, 2)*w_corr_cross_d[0], 
+                                                        _rot(dim, 1)*w_corr_cross_d[0] - _rot(dim, 0)*w_corr_cross_d[1]};
 
         // H * P  or  P * H'
         const unsigned int index = 3 + dim;
@@ -703,7 +719,7 @@ unsigned char ESKF::fuse_velocity(const array<float, 3> &vel, const array<float,
 
         // h = v + R * (w - bg)^ * dis
         // e = y - h = y - (v + R * (w - bg)^ * dis)
-        const float obs_error = vel[dim] - (_state[index] + _rot[dim][0] * w_corr_cross_d[0] + _rot[dim][1] * w_corr_cross_d[1] + _rot[dim][2] * w_corr_cross_d[2]);
+        const float obs_error = vel[dim] - (_v[dim] + _rot(dim, 0) * w_corr_cross_d[0] + _rot(dim, 1) * w_corr_cross_d[1] + _rot(dim, 2) * w_corr_cross_d[2]);
 
         /*
         K = P * H' * (H * P * H' + R)^-1
@@ -786,25 +802,28 @@ void ESKF::correct_state() {
     g = g + δg
     */
     for (unsigned char i = 0; i < 3; ++i) {
-        _state[i] += _error_state[i];
-        _state[3 + i] += _error_state[3 + i];
-        _state[6 + i] += _error_state[9 + i];
-        _state[9 + i] += _error_state[12 + i];
+        _p[i] += _error_state[i];
+        _v[i] += _error_state[3 + i];
+        _bg[i] += _error_state[9 + i];
+        _ba[i] += _error_state[12 + i];
     }
-    _state[12] += _error_state[15];
+    _g += _error_state[15];
     
-    // R = R * Exp(δθ)
-    array<array<float, 3>, 3> delta_rot;
+    // // R = R * Exp(δθ)
+    // Matrix3f delta_rot;
+    // array<float, 3> delta_theta = {_error_state[6], _error_state[7], _error_state[8]};
+    // rotation_from_axis_angle(delta_rot, delta_theta);
+    // Matrix3f rot = _rot;
+    // _rot = rot * delta_rot;
+
+    // q = q * Exp(δθ)
+    Quaternionf delta_q;
     array<float, 3> delta_theta = {_error_state[6], _error_state[7], _error_state[8]};
-    rotation_from_axis_angle(delta_rot, delta_theta);
-    array<array<float, 3>, 3> rot = _rot;
-    for (unsigned char i = 0; i < 3; ++i) {
-        for (unsigned char j = 0; j < 3; ++j) {
-            for (unsigned char k = 0; k < 3; ++k) {
-                _rot[i][j] = rot[i][k] * delta_rot[k][j];
-            }
-        }
-    }
+    quaternion_from_axis_angle(delta_q, delta_theta);
+    const Quaternionf q = _q;
+    _q = q * delta_q;
+
+    _rot = q;
 
     // [δp, δv, δθ, δbg, δba, δg] = 0
     for (float &es : _error_state) {
@@ -812,33 +831,14 @@ void ESKF::correct_state() {
     }
 }
 
-// void reset_rot(const float roll=0.f, const float pitch=0.f, const float yaw=0.f);
-// void reset_rot(const array<float, 3> &axis_angle);
-void ESKF::reset_rot(const array<float, 4> &quaternion) {
-    _rot[0][0] = quaternion[0]*quaternion[0] + quaternion[1]*quaternion[1] - quaternion[2]*quaternion[2] - quaternion[3]*quaternion[3];
-    _rot[0][1] = 2.f*(quaternion[1]*quaternion[2] - quaternion[0]*quaternion[3]);
-    _rot[0][2] = 2.f*(quaternion[0]*quaternion[2] + quaternion[1]*quaternion[3]);
-    _rot[1][0] = 2.f*(quaternion[1]*quaternion[2] + quaternion[0]*quaternion[3]);
-    _rot[1][1] = quaternion[0]*quaternion[0] - quaternion[1]*quaternion[1] + quaternion[2]*quaternion[2] - quaternion[3]*quaternion[3];
-    _rot[1][2] = 2.f*(quaternion[2]*quaternion[3] - quaternion[0]*quaternion[1]);
-    _rot[2][0] = 2.f*(quaternion[1]*quaternion[3] - quaternion[0]*quaternion[2]);
-    _rot[2][1] = 2.f*(quaternion[0]*quaternion[1] + quaternion[2]*quaternion[3]);
-    _rot[2][2] = quaternion[0]*quaternion[0] - quaternion[1]*quaternion[1] - quaternion[2]*quaternion[2] + quaternion[3]*quaternion[3];
-}
-
-void ESKF::reset_rot(const array<array<float, 3>, 3> &rotation_maxtrix) {
-    for (unsigned char i = 0; i < 3; ++i) {
-        for (unsigned char j = 0; j < 3; ++j) {
-            _rot[i][j] = rotation_maxtrix[i][j];
-        }
-    }
-}
-
 void ESKF::reset_state() {
-    for (float &s : _state) {
-        s = 0.f;
-    }
-    _state[12] = _g;
+    _p.setZero();
+    _v.setZero();
+    _bg.setZero();
+    _ba.setZero();
+    _g = _g_init;
+    _rot.setIdentity();
+    _q.setIdentity();
 }
 
 void ESKF::reset_error_state() { 
@@ -847,7 +847,11 @@ void ESKF::reset_error_state() {
     } 
 }
 
-void ESKF::reset_covariance_matrix(const unsigned int start_index, const unsigned int end_index, const array<float, 16> &diag_cov) {
+void ESKF::reset_priori_covariance_matrix() {
+    _q_cov.setZero();
+}
+
+void ESKF::reset_covariance_matrix(const unsigned int start_index, const unsigned int end_index, const Matrix<float, 16, 1> &diag_cov) {
     for (unsigned int i = start_index; i < end_index; ++i) {
         // Diaginal
         _cov[i][i] = _q_cov[i] * _dt2;

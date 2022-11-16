@@ -15,7 +15,8 @@ using namespace std;
 using namespace Eigen;
 
 int main() {
-    // eskf::ESKF eskf_test(0.004f);
+    // eskf::ESKF eskf_test(0.001f);
+    // eskf_test.reset_priori_covariance_matrix();
     // eskf_test.set_gyroscope_standard_deviation(eskf::noise_std_gyro);
     // eskf_test.set_accelerometer_standard_deviation(eskf::noise_std_acc);
     // eskf_test.set_drift_gyroscope_standard_deviation(eskf::noise_std_drift_gyro);
@@ -24,8 +25,8 @@ int main() {
     // eskf_test.set_processing_standard_deviation(eskf::noise_std_proc);
     // eskf_test.initialize();
 
-    // array<float, 3> w = {1.f, 2.f, 3.f};
-    // array<float, 3> a = {-3.f, -2.f, -9.8f - 1.f};
+    // Vector3f w = {1.f, 2.f, 3.f};
+    // Vector3f a = {-3.f, -2.f, -9.8f - 1.f};
 
     
     // for (int i = 0; i < 50; ++i) {
@@ -160,75 +161,38 @@ int main() {
     eskf_rtk.initialize();
 
     for (unsigned i = 0; i < num_step; ++i) {
-        array<float, 3> eskf_w, eskf_a;
-        eskf_w[0] = w_meas[i](0);
-        eskf_w[1] = w_meas[i](1);
-        eskf_w[2] = w_meas[i](2);
-        eskf_a[0] = a_meas[i](0);
-        eskf_a[1] = a_meas[i](1);
-        eskf_a[2] = a_meas[i](2);
-
-        array<float, 3> eskf_pl, eskf_vl, eskf_pr, eskf_vr;
-        eskf_pl[0] = pl_meas[i](0);
-        eskf_pl[1] = pl_meas[i](1);
-        eskf_pl[2] = pl_meas[i](2);
-        eskf_vl[0] = vl_meas[i](0);
-        eskf_vl[1] = vl_meas[i](1);
-        eskf_vl[2] = vl_meas[i](2);
-        eskf_pr[0] = pr_meas[i](0);
-        eskf_pr[1] = pr_meas[i](1);
-        eskf_pr[2] = pr_meas[i](2);
-        eskf_vr[0] = vr_meas[i](0);
-        eskf_vr[1] = vr_meas[i](1);
-        eskf_vr[2] = vr_meas[i](2);
-
-        eskf_rtk.predict_state(eskf_w, eskf_a);
-        eskf_rtk.predict_covariance(eskf_w, eskf_a);
+        eskf_rtk.predict_state(w_meas[i], a_meas[i]);
+        eskf_rtk.predict_covariance(w_meas[i], a_meas[i]);
         unsigned char info;
-        info = eskf_rtk.fuse_position(eskf_pl, eskf_w, eskf_a, eskf::d_gps_left, eskf::noise_std_rtk_pos, eskf::gate_rtk_pos);
+        info = eskf_rtk.fuse_position(pl_meas[i], w_meas[i], a_meas[i], eskf::d_gps_left, eskf::noise_std_rtk_pos, eskf::gate_rtk_pos);
         if (info != 0) {
             cout << "pl: " << int(info) << endl;
         }
-        info = eskf_rtk.fuse_velocity(eskf_vl, eskf_w, eskf_a, eskf::d_gps_left, eskf::noise_std_gps_vel, eskf::gate_gps_vel);
+        info = eskf_rtk.fuse_velocity(vl_meas[i], w_meas[i], a_meas[i], eskf::d_gps_left, eskf::noise_std_gps_vel, eskf::gate_gps_vel);
         if (info != 0) {
             cout << "vl: " << int(info) << endl;
         }
-        info = eskf_rtk.fuse_position(eskf_pr, eskf_w, eskf_a, eskf::d_gps_right, eskf::noise_std_rtk_pos, eskf::gate_rtk_pos);
+        info = eskf_rtk.fuse_position(pr_meas[i], w_meas[i], a_meas[i], eskf::d_gps_right, eskf::noise_std_rtk_pos, eskf::gate_rtk_pos);
         if (info != 0) {
             cout << "pr: " << int(info) << endl;
         }
-        info = eskf_rtk.fuse_velocity(eskf_vr, eskf_w, eskf_a, eskf::d_gps_right, eskf::noise_std_gps_vel, eskf::gate_gps_vel);
+        info = eskf_rtk.fuse_velocity(vr_meas[i], w_meas[i], a_meas[i], eskf::d_gps_right, eskf::noise_std_gps_vel, eskf::gate_gps_vel);
         if (info != 0) {
             cout << "vr: " << int(info) << endl;
         }
         eskf_rtk.correct_state();
 
-        auto state = eskf_rtk.get_state();
-        p_hat[i](0) = state[0];
-        p_hat[i](1) = state[1];
-        p_hat[i](2) = state[2];
-        v_hat[i](0) = state[3];
-        v_hat[i](1) = state[4];
-        v_hat[i](2) = state[5];
-        bg_hat[i](0) = state[6];
-        bg_hat[i](1) = state[7];
-        bg_hat[i](2) = state[8];
-        ba_hat[i](0) = state[9];
-        ba_hat[i](1) = state[10];
-        ba_hat[i](2) = state[11];
-        g_hat[i] = state[12];
+        p_hat[i] = eskf_rtk.get_position();
+        v_hat[i] = eskf_rtk.get_velocity();
+        bg_hat[i] = eskf_rtk.get_drift_gyro();
+        ba_hat[i] = eskf_rtk.get_drift_acc();
+        g_hat[i] = eskf_rtk.get_gravity();
 
-        auto rot = eskf_rtk.get_rotation_matrix();
-        Matrix3f r;
-        r << rot[0][0], rot[0][1], rot[0][2],
-             rot[1][0], rot[1][1], rot[1][2],
-             rot[2][0], rot[2][1], rot[2][2];
-        Quaternionf q(r);
-        q_hat[i] = q;     
+        q_hat[i] = eskf_rtk.get_quaternion();     
 
-        cout << g_hat[i] << endl;
+        // cout << g_hat[i] << endl;
 
-        // cout << v_true[i].transpose() << ", " << v_hat[i].transpose() << endl;
+        cout << p_true[i].transpose() << ", " << p_hat[i].transpose() << endl;
     }
 
     return 0;
