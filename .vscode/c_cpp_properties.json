@@ -5,7 +5,11 @@
             "includePath": [
                 "${workspaceFolder}/**",
                 "E:/eigen3/**",
-                "${workspaceFolder}/include/eskf"
+                "${workspaceFolder}/include/eskf",
+                "${workspaceFolder}/include/leskf",
+                "${workspaceFolder}/include/geskf",
+                "${workspaceFolder}/include/liekf",
+                "${workspaceFolder}/include/riekf"
             ],
             "defines": [
                 "_DEBUG",

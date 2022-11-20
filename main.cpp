@@ -8,7 +8,10 @@
 #include <Eigen/Dense>
 #include <algorithm>
 #include <random>
-#include "eskf.h"
+#include "leskf.h"
+#include "geskf.h"
+#include "liekf.h"
+#include "riekf.h"
 #include "param.h"
 
 using namespace std;
@@ -151,7 +154,10 @@ int main() {
         }
     }
 
-    eskf::ESKF eskf_rtk(ts);
+    // leskf::LESKF eskf_rtk(ts);
+    // geskf::GESKF eskf_rtk(ts);
+    // liekf::LIEKF eskf_rtk(ts);
+    riekf::RIEKF eskf_rtk(ts);
     eskf_rtk.set_gyroscope_standard_deviation(eskf::noise_std_gyro);
     eskf_rtk.set_accelerometer_standard_deviation(eskf::noise_std_acc);
     eskf_rtk.set_drift_gyroscope_standard_deviation(eskf::noise_std_drift_gyro);
@@ -193,10 +199,10 @@ int main() {
 
         // cout << g_hat[i] << endl;
 
-        // cout << p_true[i].transpose() << ", " << p_hat[i].transpose() << endl;
+        cout << p_true[i].transpose() << ", " << p_hat[i].transpose() << endl;
     }
-    clock_t t2 = clock();
-    cout << "time: " << t2 - t1 << endl;
+    // clock_t t2 = clock();
+    // cout << "time: " << t2 - t1 << endl;
 
     return 0;
 }

@@ -30,13 +30,13 @@ namespace eskf {
         void initialize();
 
         // Priori
-        void predict_covariance(const Vector3f &w, const Vector3f &a);
         void predict_state(const Vector3f &w, const Vector3f &a);
+        virtual void predict_covariance(const Vector3f &w, const Vector3f &a) = 0;
 
         // Posteriori
-        unsigned char fuse_position(const Vector3f &pos, const Vector3f &w, const Vector3f &a, const Vector3f &dis, const Vector3f &noise_std, const Vector3f &gate);
-        unsigned char fuse_velocity(const Vector3f &vel, const Vector3f &w, const Vector3f &a, const Vector3f &dis, const Vector3f &noise_std, const Vector3f &gate);
-        void correct_state();
+        virtual unsigned char fuse_position(const Vector3f &pos, const Vector3f &w, const Vector3f &a, const Vector3f &dis, const Vector3f &noise_std, const Vector3f &gate) = 0;
+        virtual unsigned char fuse_velocity(const Vector3f &vel, const Vector3f &w, const Vector3f &a, const Vector3f &dis, const Vector3f &noise_std, const Vector3f &gate) = 0;
+        virtual void correct_state() = 0;
 
         // Resetters
         void reset_state();
@@ -75,7 +75,7 @@ namespace eskf {
         void set_processing_standard_deviation(const float std) { for (unsigned char i = 0; i < 16; ++i) { _q_cov[i] += std * std; } };
         void set_priori_covariance_matrix(Matrix<float, 16, 1> &q) { _q_cov = q; };
 
-    private:
+    protected:
         float _g_init;                 // Initial gravity constant
 
         float _dt;                      // Sample time of IMU
@@ -103,4 +103,4 @@ namespace eskf {
     };
 }
 
-#endif //NAVIGATION_ESKF_H
+#endif //NAVIGATION_ESKF_ESKF_H
