@@ -37,6 +37,7 @@ namespace eskf {
         virtual unsigned char fuse_position(const Vector3f &pos, const Vector3f &w, const Vector3f &a, const Vector3f &dis, const Vector3f &noise_std, const Vector3f &gate) = 0;
         virtual unsigned char fuse_velocity(const Vector3f &vel, const Vector3f &w, const Vector3f &a, const Vector3f &dis, const Vector3f &noise_std, const Vector3f &gate) = 0;
         virtual void correct_state() = 0;
+        virtual void correct_covariance() = 0;
 
         // Resetters
         void reset_state();

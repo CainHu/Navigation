@@ -187,6 +187,7 @@ int main() {
         if (info != 0) {
             cout << "vr: " << int(info) << endl;
         }
+        eskf_rtk.correct_covariance();
         eskf_rtk.correct_state();
 
         p_hat[i] = eskf_rtk.get_position();
@@ -199,10 +200,10 @@ int main() {
 
         // cout << g_hat[i] << endl;
 
-        cout << p_true[i].transpose() << ", " << p_hat[i].transpose() << endl;
+        // cout << p_true[i].transpose() << ", " << p_hat[i].transpose() << endl;
     }
-    // clock_t t2 = clock();
-    // cout << "time: " << t2 - t1 << endl;
+    clock_t t2 = clock();
+    cout << "time: " << t2 - t1 << endl;
 
     return 0;
 }
