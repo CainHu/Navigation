@@ -3,7 +3,7 @@ project(Navigation)
 
 set(CMAKE_CXX_STANDARD 14)
 
-# set(CMAKE_BUILD_TYPE Release)
+set(CMAKE_BUILD_TYPE Release)
 
 if (NOT CMAKE_BUILD_TYPE)
     message("not defined Build Type:auto define it to Debug" )
