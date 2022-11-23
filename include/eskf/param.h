@@ -5,6 +5,7 @@
 
 namespace eskf {
     using namespace std;
+    using namespace Eigen;
 
     // Standard deviation of noise
     Vector3f noise_std_rtk_pos {0.01f, 0.01f, 0.01f};
@@ -35,6 +36,7 @@ namespace eskf {
     Vector3f gate_vision_pos {1000.f, 1000.f, 1000.f};
     Vector3f gate_vision_vel {1000.f, 1000.f, 1000.f};
     float gate_baro {100.f};
+
 }
 
 #endif // NAVIGATION_ESKF_PARAM_H

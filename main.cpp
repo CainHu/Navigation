@@ -95,6 +95,7 @@ int main() {
         AngleAxisf angle_axis(d_ang.norm(), d_ang.normalized());
         Quaternionf dq(angle_axis);
         q = q * dq;
+        q.normalize();
 
         Vector3f nbg(eskf::noise_std_drift_gyro[0] * dist(random_engine),
                     eskf::noise_std_drift_gyro[1] * dist(random_engine),
@@ -155,15 +156,17 @@ int main() {
     }
 
     // leskf::LESKF eskf_rtk(ts);
-    // geskf::GESKF eskf_rtk(ts);
+    geskf::GESKF eskf_rtk(ts);
     // liekf::LIEKF eskf_rtk(ts);
-    riekf::RIEKF eskf_rtk(ts);
+    // riekf::RIEKF eskf_rtk(ts);
     eskf_rtk.set_gyroscope_standard_deviation(eskf::noise_std_gyro);
     eskf_rtk.set_accelerometer_standard_deviation(eskf::noise_std_acc);
     eskf_rtk.set_drift_gyroscope_standard_deviation(eskf::noise_std_drift_gyro);
     eskf_rtk.set_drift_saccelerometer_tandard_deviation(eskf::noise_std_drift_acc);
     eskf_rtk.set_gravity_standard_deviation(eskf::noise_std_grav);
     eskf_rtk.set_processing_standard_deviation(eskf::noise_std_proc);
+    eskf_rtk.enable_estimation_acc_bias();
+    eskf_rtk.enable_estimation_gravity();
     eskf_rtk.initialize();
 
     clock_t t1 = clock();
@@ -187,7 +190,7 @@ int main() {
         if (info != 0) {
             cout << "vr: " << int(info) << endl;
         }
-        eskf_rtk.correct_covariance();
+        // eskf_rtk.correct_covariance();
         eskf_rtk.correct_state();
 
         p_hat[i] = eskf_rtk.get_position();
@@ -199,6 +202,8 @@ int main() {
         q_hat[i] = eskf_rtk.get_quaternion();     
 
         // cout << g_hat[i] << endl;
+
+        // cout << eskf_rtk.get_wind() << endl;
 
         // cout << p_true[i].transpose() << ", " << p_hat[i].transpose() << endl;
     }

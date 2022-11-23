@@ -14,8 +14,8 @@ void ESKF::initialize() {
 
     reset_state();
     reset_error_state();
-    reset_covariance_matrix(0, 16, _q_cov);
-    regular_covariance_to_symmetric();
+    reset_covariance_matrix(0, ESKF::dim);
+    regular_covariance_to_symmetric<ESKF::dim>(0);
     reset_accmulator_cov();
 }
 
@@ -112,6 +112,9 @@ void ESKF::predict_state(const Vector3f &w, const Vector3f &a) {
     // bg' = bg
     // ba' = ba
     // g = g
+    // m' = m
+    // bm' = bm
+    // w' = w
 
     // axis_angle = (w - bg) * Δt
     const array<float, 3> axis_angle = {(w[0] - _bg[0]) * _dt, (w[1] - _bg[1]) * _dt, (w[2] - _bg[2]) * _dt};
@@ -136,7 +139,7 @@ void ESKF::predict_state(const Vector3f &w, const Vector3f &a) {
     _rot = _q;
 }
 
-unsigned char ESKF::conservative_posteriori_estimate(const array<float, 16> &HP, const float &HPHT_plus_R, const float &obs_error, const float &gate) {
+unsigned char ESKF::conservative_posteriori_estimate(const array<float, ESKF::dim> &HP, const float &HPHT_plus_R, const float &obs_error, const float &gate) {
     /*
     K = P * H' * (H * P * H' + R)^-1
     P = P - K * H * P
@@ -151,94 +154,31 @@ unsigned char ESKF::conservative_posteriori_estimate(const array<float, 16> &HP,
     }
 
     // Don't correct error state unless (I - KH) * P > 0 <=> P - PH'(HPH'+R)^-1HP > 0
-    for (unsigned char i = 0; i < 16; ++i) {
+    for (unsigned char i = 0; i < ESKF::dim; ++i) {
         if (HP[i] * HP[i] >= HPHT_plus_R * _cov[i][i]) {
             return 2;    
         }
     }
     
     // K = P * H' * (H * P * H' + R)^-1
-    array<float, 16> K {};
-    for (unsigned char i = 0; i < 16; ++i) {
+    array<float, ESKF::dim> K {};
+    for (unsigned char i = 0; i < ESKF::dim; ++i) {
         K[i] = HP[i] / HPHT_plus_R;
     }
+    // cout << K[16] << ", " << K[17] << ", " << K[18] << ", ";
+    // cout << K[19] << ", " << K[20] << ", " << K[21] << ", ";
+    // cout << K[22] << ", " << K[23] << endl;
 
     // x = x + K * e
-    for (unsigned char i = 0; i < 16; ++i) {
+    for (unsigned char i = 0; i < ESKF::dim; ++i) {
         _error_state[i] += K[i] * obs_error;
     }
 
     // P = P - K * H * P
-    for (unsigned char i = 0; i < 16; ++i) {
-        for (unsigned char j = i; j < 16; ++j) {
+    for (unsigned char i = 0; i < ESKF::dim; ++i) {
+        for (unsigned char j = i; j < ESKF::dim; ++j) {
             _cov[i][j] -= K[i] * HP[j];
         }
     }
     return 0;
-}
-
-void ESKF::reset_state() {
-    _p.setZero();
-    _v.setZero();
-    _bg.setZero();
-    _ba.setZero();
-    _g = _g_init;
-    _rot.setIdentity();
-    _q.setIdentity();
-}
-
-void ESKF::reset_error_state() { 
-    for (float &es : _error_state) { 
-        es = 0.f; 
-    } 
-}
-
-void ESKF::reset_priori_covariance_matrix() {
-    _q_cov.setZero();
-}
-
-void ESKF::reset_covariance_matrix(const unsigned int start_index, const unsigned int end_index, const Matrix<float, 16, 1> &diag_cov) {
-    for (unsigned int i = start_index; i < end_index; ++i) {
-        // Diaginal
-        _cov[i][i] = _q_cov[i] * _dt2;
-
-        // Upper triangular
-        for (unsigned int j = start_index; j < i; ++j) {
-            _cov[j][i] = 0.f;
-        }
-
-        // Columns
-        for (unsigned int j = 0; j < start_index; ++j) {
-            _cov[j][i] = 0.f;
-        }
-
-        // Rows
-        for (unsigned int j = end_index; j < 16; ++j) {
-            _cov[i][j] = 0.f;
-        }
-    }
-}
-
-void ESKF::reset_accmulator_cov() {
-    for (float &a : _accumulator_cov) {
-        a = 0.f;
-    }
-}
-
-void ESKF::regular_covariance_to_symmetric(unsigned int start_index, unsigned int end_index) {
-    for (unsigned int i = start_index + 1; i < end_index; ++i) {
-        for (unsigned int j = 0; j < i; ++j) {
-            _cov[i][j] = _cov[j][i];
-        }
-    }
-}
-
-float ESKF::kahan_summation(float sum_previous, float input, float &accumulator) {
-    /*
-    accumulator中记录了sum_previous + y中, y舍弃掉的部分
-    */
-    const float y = input - accumulator;
-    const float t = sum_previous + y;
-    accumulator = (t - sum_previous) - y;
-    return t;
 }
