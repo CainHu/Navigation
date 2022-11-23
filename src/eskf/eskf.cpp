@@ -226,8 +226,13 @@ void ESKF::reset_accmulator_cov() {
 }
 
 void ESKF::regular_covariance_to_symmetric(unsigned int start_index, unsigned int end_index) {
-    for (unsigned int i = start_index + 1; i < end_index; ++i) {
+    for (unsigned int i = start_index; i < end_index; ++i) {
         for (unsigned int j = 0; j < i; ++j) {
+            _cov[i][j] = _cov[j][i];
+        }
+    }
+    for (unsigned int i = end_index; i < 16; ++i) {
+        for (unsigned int j = start_index; j < end_index; ++j) {
             _cov[i][j] = _cov[j][i];
         }
     }

@@ -155,9 +155,9 @@ int main() {
     }
 
     // leskf::LESKF eskf_rtk(ts);
-    // geskf::GESKF eskf_rtk(ts);
+    geskf::GESKF eskf_rtk(ts);
     // liekf::LIEKF eskf_rtk(ts);
-    riekf::RIEKF eskf_rtk(ts);
+    // riekf::RIEKF eskf_rtk(ts);
     eskf_rtk.set_gyroscope_standard_deviation(eskf::noise_std_gyro);
     eskf_rtk.set_accelerometer_standard_deviation(eskf::noise_std_acc);
     eskf_rtk.set_drift_gyroscope_standard_deviation(eskf::noise_std_drift_gyro);

@@ -804,15 +804,5 @@ void LESKF::correct_covariance() {
     // _cov[14][15] = _cov[15][14];
     // _cov[15][15] = _cov[15][15];
 
-    for (unsigned char i = 6; i < 9; ++i) {
-        for (unsigned char j = i + 1; j < 16; ++j) {
-            _cov[j][i] = _cov[i][j];
-        }
-    }
-
-    for (unsigned char i = 0; i < 6; ++i) {
-        for (unsigned char j = 6; j < 9; ++j) {
-            _cov[j][i] = _cov[i][j];
-        }
-    }
+    regular_covariance_to_symmetric(6, 9);
 }
