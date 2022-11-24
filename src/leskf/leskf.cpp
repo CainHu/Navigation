@@ -435,30 +435,40 @@ unsigned char LESKF::fuse_position(const Vector3f &pos, const Vector3f &w, const
 
         // H * P  or  P * H'
         const float cov_1_dim = (dim == 2) ? _cov[1][dim] : _cov[dim][1];
-        const array<float, ESKF::dim> HP = {_cov[0][dim] + _cov[0][6]*minus_rot_d_hat[0] + _cov[0][7]*minus_rot_d_hat[1] + _cov[0][8]*minus_rot_d_hat[2],
-                                            cov_1_dim + _cov[1][6]*minus_rot_d_hat[0] + _cov[1][7]*minus_rot_d_hat[1] + _cov[1][8]*minus_rot_d_hat[2],
-                                            _cov[dim][2] + _cov[2][6]*minus_rot_d_hat[0] + _cov[2][7]*minus_rot_d_hat[1] + _cov[2][8]*minus_rot_d_hat[2],
-                                            _cov[dim][3] + _cov[3][6]*minus_rot_d_hat[0] + _cov[3][7]*minus_rot_d_hat[1] + _cov[3][8]*minus_rot_d_hat[2],
-                                            _cov[dim][4] + _cov[4][6]*minus_rot_d_hat[0] + _cov[4][7]*minus_rot_d_hat[1] + _cov[4][8]*minus_rot_d_hat[2],
-                                            _cov[dim][5] + _cov[5][6]*minus_rot_d_hat[0] + _cov[5][7]*minus_rot_d_hat[1] + _cov[5][8]*minus_rot_d_hat[2],
-                                            _cov[dim][6] + _cov[6][6]*minus_rot_d_hat[0] + _cov[6][7]*minus_rot_d_hat[1] + _cov[6][8]*minus_rot_d_hat[2],
-                                            _cov[dim][7] + _cov[6][7]*minus_rot_d_hat[0] + _cov[7][7]*minus_rot_d_hat[1] + _cov[7][8]*minus_rot_d_hat[2],
-                                            _cov[dim][8] + _cov[6][8]*minus_rot_d_hat[0] + _cov[7][8]*minus_rot_d_hat[1] + _cov[8][8]*minus_rot_d_hat[2],
-                                            _cov[dim][9] + _cov[6][9]*minus_rot_d_hat[0] + _cov[7][9]*minus_rot_d_hat[1] + _cov[8][9]*minus_rot_d_hat[2],
-                                            _cov[dim][10] + _cov[6][10]*minus_rot_d_hat[0] + _cov[7][10]*minus_rot_d_hat[1] + _cov[8][10]*minus_rot_d_hat[2],
-                                            _cov[dim][11] + _cov[6][11]*minus_rot_d_hat[0] + _cov[7][11]*minus_rot_d_hat[1] + _cov[8][11]*minus_rot_d_hat[2],
-                                            _cov[dim][12] + _cov[6][12]*minus_rot_d_hat[0] + _cov[7][12]*minus_rot_d_hat[1] + _cov[8][12]*minus_rot_d_hat[2],
-                                            _cov[dim][13] + _cov[6][13]*minus_rot_d_hat[0] + _cov[7][13]*minus_rot_d_hat[1] + _cov[8][13]*minus_rot_d_hat[2],
-                                            _cov[dim][14] + _cov[6][14]*minus_rot_d_hat[0] + _cov[7][14]*minus_rot_d_hat[1] + _cov[8][14]*minus_rot_d_hat[2],
-                                            _cov[dim][15] + _cov[6][15]*minus_rot_d_hat[0] + _cov[7][15]*minus_rot_d_hat[1] + _cov[8][15]*minus_rot_d_hat[2],
-                                            _cov[dim][16] + _cov[6][16]*minus_rot_d_hat[0] + _cov[7][16]*minus_rot_d_hat[1] + _cov[8][16]*minus_rot_d_hat[2],
-                                            _cov[dim][17] + _cov[6][17]*minus_rot_d_hat[0] + _cov[7][17]*minus_rot_d_hat[1] + _cov[8][17]*minus_rot_d_hat[2],
-                                            _cov[dim][18] + _cov[6][18]*minus_rot_d_hat[0] + _cov[7][18]*minus_rot_d_hat[1] + _cov[8][18]*minus_rot_d_hat[2],
-                                            _cov[dim][19] + _cov[6][19]*minus_rot_d_hat[0] + _cov[7][19]*minus_rot_d_hat[1] + _cov[8][19]*minus_rot_d_hat[2],
-                                            _cov[dim][20] + _cov[6][20]*minus_rot_d_hat[0] + _cov[7][20]*minus_rot_d_hat[1] + _cov[8][20]*minus_rot_d_hat[2],
-                                            _cov[dim][21] + _cov[6][21]*minus_rot_d_hat[0] + _cov[7][21]*minus_rot_d_hat[1] + _cov[8][21]*minus_rot_d_hat[2],
-                                            _cov[dim][22] + _cov[6][22]*minus_rot_d_hat[0] + _cov[7][22]*minus_rot_d_hat[1] + _cov[8][22]*minus_rot_d_hat[2],
-                                            _cov[dim][23] + _cov[6][23]*minus_rot_d_hat[0] + _cov[7][23]*minus_rot_d_hat[1] + _cov[8][23]*minus_rot_d_hat[2]};
+        array<float, ESKF::dim> HP = {_cov[0][dim] + _cov[0][6]*minus_rot_d_hat[0] + _cov[0][7]*minus_rot_d_hat[1] + _cov[0][8]*minus_rot_d_hat[2],
+                                        cov_1_dim + _cov[1][6]*minus_rot_d_hat[0] + _cov[1][7]*minus_rot_d_hat[1] + _cov[1][8]*minus_rot_d_hat[2],
+                                        _cov[dim][2] + _cov[2][6]*minus_rot_d_hat[0] + _cov[2][7]*minus_rot_d_hat[1] + _cov[2][8]*minus_rot_d_hat[2],
+                                        _cov[dim][3] + _cov[3][6]*minus_rot_d_hat[0] + _cov[3][7]*minus_rot_d_hat[1] + _cov[3][8]*minus_rot_d_hat[2],
+                                        _cov[dim][4] + _cov[4][6]*minus_rot_d_hat[0] + _cov[4][7]*minus_rot_d_hat[1] + _cov[4][8]*minus_rot_d_hat[2],
+                                        _cov[dim][5] + _cov[5][6]*minus_rot_d_hat[0] + _cov[5][7]*minus_rot_d_hat[1] + _cov[5][8]*minus_rot_d_hat[2],
+                                        _cov[dim][6] + _cov[6][6]*minus_rot_d_hat[0] + _cov[6][7]*minus_rot_d_hat[1] + _cov[6][8]*minus_rot_d_hat[2],
+                                        _cov[dim][7] + _cov[6][7]*minus_rot_d_hat[0] + _cov[7][7]*minus_rot_d_hat[1] + _cov[7][8]*minus_rot_d_hat[2],
+                                        _cov[dim][8] + _cov[6][8]*minus_rot_d_hat[0] + _cov[7][8]*minus_rot_d_hat[1] + _cov[8][8]*minus_rot_d_hat[2],
+                                        _cov[dim][9] + _cov[6][9]*minus_rot_d_hat[0] + _cov[7][9]*minus_rot_d_hat[1] + _cov[8][9]*minus_rot_d_hat[2],
+                                        _cov[dim][10] + _cov[6][10]*minus_rot_d_hat[0] + _cov[7][10]*minus_rot_d_hat[1] + _cov[8][10]*minus_rot_d_hat[2],
+                                        _cov[dim][11] + _cov[6][11]*minus_rot_d_hat[0] + _cov[7][11]*minus_rot_d_hat[1] + _cov[8][11]*minus_rot_d_hat[2],
+                                        _cov[dim][12] + _cov[6][12]*minus_rot_d_hat[0] + _cov[7][12]*minus_rot_d_hat[1] + _cov[8][12]*minus_rot_d_hat[2],
+                                        _cov[dim][13] + _cov[6][13]*minus_rot_d_hat[0] + _cov[7][13]*minus_rot_d_hat[1] + _cov[8][13]*minus_rot_d_hat[2],
+                                        _cov[dim][14] + _cov[6][14]*minus_rot_d_hat[0] + _cov[7][14]*minus_rot_d_hat[1] + _cov[8][14]*minus_rot_d_hat[2],
+                                        _cov[dim][15] + _cov[6][15]*minus_rot_d_hat[0] + _cov[7][15]*minus_rot_d_hat[1] + _cov[8][15]*minus_rot_d_hat[2],
+                                        0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f};
+
+        if (_control_status.flags.mag) {
+            HP[16] = _cov[dim][16] + _cov[6][16]*minus_rot_d_hat[0] + _cov[7][16]*minus_rot_d_hat[1] + _cov[8][16]*minus_rot_d_hat[2];
+            HP[17] = _cov[dim][17] + _cov[6][17]*minus_rot_d_hat[0] + _cov[7][17]*minus_rot_d_hat[1] + _cov[8][17]*minus_rot_d_hat[2];
+            HP[18] = _cov[dim][18] + _cov[6][18]*minus_rot_d_hat[0] + _cov[7][18]*minus_rot_d_hat[1] + _cov[8][18]*minus_rot_d_hat[2];
+                                            
+            if (_control_status.flags.mag_bias) {
+                HP[19] = _cov[dim][19] + _cov[6][19]*minus_rot_d_hat[0] + _cov[7][19]*minus_rot_d_hat[1] + _cov[8][19]*minus_rot_d_hat[2];
+                HP[20] = _cov[dim][20] + _cov[6][20]*minus_rot_d_hat[0] + _cov[7][20]*minus_rot_d_hat[1] + _cov[8][20]*minus_rot_d_hat[2];
+                HP[21] = _cov[dim][21] + _cov[6][21]*minus_rot_d_hat[0] + _cov[7][21]*minus_rot_d_hat[1] + _cov[8][21]*minus_rot_d_hat[2];
+            }
+        }
+
+        if (_control_status.flags.wind) {
+            HP[22] = _cov[dim][22] + _cov[6][22]*minus_rot_d_hat[0] + _cov[7][22]*minus_rot_d_hat[1] + _cov[8][22]*minus_rot_d_hat[2];
+            HP[23] = _cov[dim][23] + _cov[6][23]*minus_rot_d_hat[0] + _cov[7][23]*minus_rot_d_hat[1] + _cov[8][23]*minus_rot_d_hat[2];
+        }
 
         // H * P * H' + R
         const float HPHT_plus_R = HP[dim] + HP[6] * minus_rot_d_hat[0] + HP[7] * minus_rot_d_hat[1] + HP[8] * minus_rot_d_hat[2] + noise_std[dim] * noise_std[dim];
@@ -543,30 +553,41 @@ unsigned char LESKF::fuse_velocity(const Vector3f &vel, const Vector3f &w, const
         // H * P  or  P * H'
         const unsigned int index = 3 + dim;
         const float cov_4_index = (dim == 2) ? _cov[4][index] : _cov[index][4];
-        const array<float, ESKF::dim> HP = {_cov[0][index] + _cov[0][6]*rot_d_cross_w_corr_hat[0] + _cov[0][7]*rot_d_cross_w_corr_hat[1] + _cov[0][8]*rot_d_cross_w_corr_hat[2] + _cov[0][9]*rot_d_hat[0] + _cov[0][10]*rot_d_hat[1] + _cov[0][11]*rot_d_hat[2],
-                                            _cov[1][index] + _cov[1][6]*rot_d_cross_w_corr_hat[0] + _cov[1][7]*rot_d_cross_w_corr_hat[1] + _cov[1][8]*rot_d_cross_w_corr_hat[2] + _cov[1][9]*rot_d_hat[0] + _cov[1][10]*rot_d_hat[1] + _cov[1][11]*rot_d_hat[2],
-                                            _cov[2][index] + _cov[2][6]*rot_d_cross_w_corr_hat[0] + _cov[2][7]*rot_d_cross_w_corr_hat[1] + _cov[2][8]*rot_d_cross_w_corr_hat[2] + _cov[2][9]*rot_d_hat[0] + _cov[2][10]*rot_d_hat[1] + _cov[2][11]*rot_d_hat[2],
-                                            _cov[3][index] + _cov[3][6]*rot_d_cross_w_corr_hat[0] + _cov[3][7]*rot_d_cross_w_corr_hat[1] + _cov[3][8]*rot_d_cross_w_corr_hat[2] + _cov[3][9]*rot_d_hat[0] + _cov[3][10]*rot_d_hat[1] + _cov[3][11]*rot_d_hat[2],
-                                            cov_4_index + _cov[4][6]*rot_d_cross_w_corr_hat[0] + _cov[4][7]*rot_d_cross_w_corr_hat[1] + _cov[4][8]*rot_d_cross_w_corr_hat[2] + _cov[4][9]*rot_d_hat[0] + _cov[4][10]*rot_d_hat[1] + _cov[4][11]*rot_d_hat[2],
-                                            _cov[index][5] + _cov[5][6]*rot_d_cross_w_corr_hat[0] + _cov[5][7]*rot_d_cross_w_corr_hat[1] + _cov[5][8]*rot_d_cross_w_corr_hat[2] + _cov[5][9]*rot_d_hat[0] + _cov[5][10]*rot_d_hat[1] + _cov[5][11]*rot_d_hat[2],
-                                            _cov[index][6] + _cov[6][6]*rot_d_cross_w_corr_hat[0] + _cov[6][7]*rot_d_cross_w_corr_hat[1] + _cov[6][8]*rot_d_cross_w_corr_hat[2] + _cov[6][9]*rot_d_hat[0] + _cov[6][10]*rot_d_hat[1] + _cov[6][11]*rot_d_hat[2],
-                                            _cov[index][7] + _cov[6][7]*rot_d_cross_w_corr_hat[0] + _cov[7][7]*rot_d_cross_w_corr_hat[1] + _cov[7][8]*rot_d_cross_w_corr_hat[2] + _cov[7][9]*rot_d_hat[0] + _cov[7][10]*rot_d_hat[1] + _cov[7][11]*rot_d_hat[2],
-                                            _cov[index][8] + _cov[6][8]*rot_d_cross_w_corr_hat[0] + _cov[7][8]*rot_d_cross_w_corr_hat[1] + _cov[8][8]*rot_d_cross_w_corr_hat[2] + _cov[8][9]*rot_d_hat[0] + _cov[8][10]*rot_d_hat[1] + _cov[8][11]*rot_d_hat[2],
-                                            _cov[index][9] + _cov[6][9]*rot_d_cross_w_corr_hat[0] + _cov[7][9]*rot_d_cross_w_corr_hat[1] + _cov[8][9]*rot_d_cross_w_corr_hat[2] + _cov[9][9]*rot_d_hat[0] + _cov[9][10]*rot_d_hat[1] + _cov[9][11]*rot_d_hat[2],
-                                            _cov[index][10] + _cov[6][10]*rot_d_cross_w_corr_hat[0] + _cov[7][10]*rot_d_cross_w_corr_hat[1] + _cov[8][10]*rot_d_cross_w_corr_hat[2] + _cov[9][10]*rot_d_hat[0] + _cov[10][10]*rot_d_hat[1] + _cov[10][11]*rot_d_hat[2],
-                                            _cov[index][11] + _cov[6][11]*rot_d_cross_w_corr_hat[0] + _cov[7][11]*rot_d_cross_w_corr_hat[1] + _cov[8][11]*rot_d_cross_w_corr_hat[2] + _cov[9][11]*rot_d_hat[0] + _cov[10][11]*rot_d_hat[1] + _cov[11][11]*rot_d_hat[2],
-                                            _cov[index][12] + _cov[6][12]*rot_d_cross_w_corr_hat[0] + _cov[7][12]*rot_d_cross_w_corr_hat[1] + _cov[8][12]*rot_d_cross_w_corr_hat[2] + _cov[9][12]*rot_d_hat[0] + _cov[10][12]*rot_d_hat[1] + _cov[11][12]*rot_d_hat[2],
-                                            _cov[index][13] + _cov[6][13]*rot_d_cross_w_corr_hat[0] + _cov[7][13]*rot_d_cross_w_corr_hat[1] + _cov[8][13]*rot_d_cross_w_corr_hat[2] + _cov[9][13]*rot_d_hat[0] + _cov[10][13]*rot_d_hat[1] + _cov[11][13]*rot_d_hat[2],
-                                            _cov[index][14] + _cov[6][14]*rot_d_cross_w_corr_hat[0] + _cov[7][14]*rot_d_cross_w_corr_hat[1] + _cov[8][14]*rot_d_cross_w_corr_hat[2] + _cov[9][14]*rot_d_hat[0] + _cov[10][14]*rot_d_hat[1] + _cov[11][14]*rot_d_hat[2],
-                                            _cov[index][15] + _cov[6][15]*rot_d_cross_w_corr_hat[0] + _cov[7][15]*rot_d_cross_w_corr_hat[1] + _cov[8][15]*rot_d_cross_w_corr_hat[2] + _cov[9][15]*rot_d_hat[0] + _cov[10][15]*rot_d_hat[1] + _cov[11][15]*rot_d_hat[2],
-                                            _cov[index][16] + _cov[6][16]*rot_d_cross_w_corr_hat[0] + _cov[7][16]*rot_d_cross_w_corr_hat[1] + _cov[8][16]*rot_d_cross_w_corr_hat[2] + _cov[9][16]*rot_d_hat[0] + _cov[10][16]*rot_d_hat[1] + _cov[11][16]*rot_d_hat[2],
-                                            _cov[index][17] + _cov[6][17]*rot_d_cross_w_corr_hat[0] + _cov[7][17]*rot_d_cross_w_corr_hat[1] + _cov[8][17]*rot_d_cross_w_corr_hat[2] + _cov[9][17]*rot_d_hat[0] + _cov[10][17]*rot_d_hat[1] + _cov[11][17]*rot_d_hat[2],
-                                            _cov[index][18] + _cov[6][18]*rot_d_cross_w_corr_hat[0] + _cov[7][18]*rot_d_cross_w_corr_hat[1] + _cov[8][18]*rot_d_cross_w_corr_hat[2] + _cov[9][18]*rot_d_hat[0] + _cov[10][18]*rot_d_hat[1] + _cov[11][18]*rot_d_hat[2],
-                                            _cov[index][19] + _cov[6][19]*rot_d_cross_w_corr_hat[0] + _cov[7][19]*rot_d_cross_w_corr_hat[1] + _cov[8][19]*rot_d_cross_w_corr_hat[2] + _cov[9][19]*rot_d_hat[0] + _cov[10][19]*rot_d_hat[1] + _cov[11][19]*rot_d_hat[2],
-                                            _cov[index][20] + _cov[6][20]*rot_d_cross_w_corr_hat[0] + _cov[7][20]*rot_d_cross_w_corr_hat[1] + _cov[8][20]*rot_d_cross_w_corr_hat[2] + _cov[9][20]*rot_d_hat[0] + _cov[10][20]*rot_d_hat[1] + _cov[11][20]*rot_d_hat[2],
-                                            _cov[index][21] + _cov[6][21]*rot_d_cross_w_corr_hat[0] + _cov[7][21]*rot_d_cross_w_corr_hat[1] + _cov[8][21]*rot_d_cross_w_corr_hat[2] + _cov[9][21]*rot_d_hat[0] + _cov[10][21]*rot_d_hat[1] + _cov[11][21]*rot_d_hat[2],
-                                            _cov[index][22] + _cov[6][22]*rot_d_cross_w_corr_hat[0] + _cov[7][22]*rot_d_cross_w_corr_hat[1] + _cov[8][22]*rot_d_cross_w_corr_hat[2] + _cov[9][22]*rot_d_hat[0] + _cov[10][22]*rot_d_hat[1] + _cov[11][22]*rot_d_hat[2],
-                                            _cov[index][23] + _cov[6][23]*rot_d_cross_w_corr_hat[0] + _cov[7][23]*rot_d_cross_w_corr_hat[1] + _cov[8][23]*rot_d_cross_w_corr_hat[2] + _cov[9][23]*rot_d_hat[0] + _cov[10][23]*rot_d_hat[1] + _cov[11][23]*rot_d_hat[2]};                                                  
+        array<float, ESKF::dim> HP = {_cov[0][index] + _cov[0][6]*rot_d_cross_w_corr_hat[0] + _cov[0][7]*rot_d_cross_w_corr_hat[1] + _cov[0][8]*rot_d_cross_w_corr_hat[2] + _cov[0][9]*rot_d_hat[0] + _cov[0][10]*rot_d_hat[1] + _cov[0][11]*rot_d_hat[2],
+                                        _cov[1][index] + _cov[1][6]*rot_d_cross_w_corr_hat[0] + _cov[1][7]*rot_d_cross_w_corr_hat[1] + _cov[1][8]*rot_d_cross_w_corr_hat[2] + _cov[1][9]*rot_d_hat[0] + _cov[1][10]*rot_d_hat[1] + _cov[1][11]*rot_d_hat[2],
+                                        _cov[2][index] + _cov[2][6]*rot_d_cross_w_corr_hat[0] + _cov[2][7]*rot_d_cross_w_corr_hat[1] + _cov[2][8]*rot_d_cross_w_corr_hat[2] + _cov[2][9]*rot_d_hat[0] + _cov[2][10]*rot_d_hat[1] + _cov[2][11]*rot_d_hat[2],
+                                        _cov[3][index] + _cov[3][6]*rot_d_cross_w_corr_hat[0] + _cov[3][7]*rot_d_cross_w_corr_hat[1] + _cov[3][8]*rot_d_cross_w_corr_hat[2] + _cov[3][9]*rot_d_hat[0] + _cov[3][10]*rot_d_hat[1] + _cov[3][11]*rot_d_hat[2],
+                                        cov_4_index + _cov[4][6]*rot_d_cross_w_corr_hat[0] + _cov[4][7]*rot_d_cross_w_corr_hat[1] + _cov[4][8]*rot_d_cross_w_corr_hat[2] + _cov[4][9]*rot_d_hat[0] + _cov[4][10]*rot_d_hat[1] + _cov[4][11]*rot_d_hat[2],
+                                        _cov[index][5] + _cov[5][6]*rot_d_cross_w_corr_hat[0] + _cov[5][7]*rot_d_cross_w_corr_hat[1] + _cov[5][8]*rot_d_cross_w_corr_hat[2] + _cov[5][9]*rot_d_hat[0] + _cov[5][10]*rot_d_hat[1] + _cov[5][11]*rot_d_hat[2],
+                                        _cov[index][6] + _cov[6][6]*rot_d_cross_w_corr_hat[0] + _cov[6][7]*rot_d_cross_w_corr_hat[1] + _cov[6][8]*rot_d_cross_w_corr_hat[2] + _cov[6][9]*rot_d_hat[0] + _cov[6][10]*rot_d_hat[1] + _cov[6][11]*rot_d_hat[2],
+                                        _cov[index][7] + _cov[6][7]*rot_d_cross_w_corr_hat[0] + _cov[7][7]*rot_d_cross_w_corr_hat[1] + _cov[7][8]*rot_d_cross_w_corr_hat[2] + _cov[7][9]*rot_d_hat[0] + _cov[7][10]*rot_d_hat[1] + _cov[7][11]*rot_d_hat[2],
+                                        _cov[index][8] + _cov[6][8]*rot_d_cross_w_corr_hat[0] + _cov[7][8]*rot_d_cross_w_corr_hat[1] + _cov[8][8]*rot_d_cross_w_corr_hat[2] + _cov[8][9]*rot_d_hat[0] + _cov[8][10]*rot_d_hat[1] + _cov[8][11]*rot_d_hat[2],
+                                        _cov[index][9] + _cov[6][9]*rot_d_cross_w_corr_hat[0] + _cov[7][9]*rot_d_cross_w_corr_hat[1] + _cov[8][9]*rot_d_cross_w_corr_hat[2] + _cov[9][9]*rot_d_hat[0] + _cov[9][10]*rot_d_hat[1] + _cov[9][11]*rot_d_hat[2],
+                                        _cov[index][10] + _cov[6][10]*rot_d_cross_w_corr_hat[0] + _cov[7][10]*rot_d_cross_w_corr_hat[1] + _cov[8][10]*rot_d_cross_w_corr_hat[2] + _cov[9][10]*rot_d_hat[0] + _cov[10][10]*rot_d_hat[1] + _cov[10][11]*rot_d_hat[2],
+                                        _cov[index][11] + _cov[6][11]*rot_d_cross_w_corr_hat[0] + _cov[7][11]*rot_d_cross_w_corr_hat[1] + _cov[8][11]*rot_d_cross_w_corr_hat[2] + _cov[9][11]*rot_d_hat[0] + _cov[10][11]*rot_d_hat[1] + _cov[11][11]*rot_d_hat[2],
+                                        _cov[index][12] + _cov[6][12]*rot_d_cross_w_corr_hat[0] + _cov[7][12]*rot_d_cross_w_corr_hat[1] + _cov[8][12]*rot_d_cross_w_corr_hat[2] + _cov[9][12]*rot_d_hat[0] + _cov[10][12]*rot_d_hat[1] + _cov[11][12]*rot_d_hat[2],
+                                        _cov[index][13] + _cov[6][13]*rot_d_cross_w_corr_hat[0] + _cov[7][13]*rot_d_cross_w_corr_hat[1] + _cov[8][13]*rot_d_cross_w_corr_hat[2] + _cov[9][13]*rot_d_hat[0] + _cov[10][13]*rot_d_hat[1] + _cov[11][13]*rot_d_hat[2],
+                                        _cov[index][14] + _cov[6][14]*rot_d_cross_w_corr_hat[0] + _cov[7][14]*rot_d_cross_w_corr_hat[1] + _cov[8][14]*rot_d_cross_w_corr_hat[2] + _cov[9][14]*rot_d_hat[0] + _cov[10][14]*rot_d_hat[1] + _cov[11][14]*rot_d_hat[2],
+                                        _cov[index][15] + _cov[6][15]*rot_d_cross_w_corr_hat[0] + _cov[7][15]*rot_d_cross_w_corr_hat[1] + _cov[8][15]*rot_d_cross_w_corr_hat[2] + _cov[9][15]*rot_d_hat[0] + _cov[10][15]*rot_d_hat[1] + _cov[11][15]*rot_d_hat[2],
+                                        0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f};       
+
+        if (_control_status.flags.mag) {
+            HP[16] = _cov[index][16] + _cov[6][16]*rot_d_cross_w_corr_hat[0] + _cov[7][16]*rot_d_cross_w_corr_hat[1] + _cov[8][16]*rot_d_cross_w_corr_hat[2] + _cov[9][16]*rot_d_hat[0] + _cov[10][16]*rot_d_hat[1] + _cov[11][16]*rot_d_hat[2];
+            HP[17] = _cov[index][17] + _cov[6][17]*rot_d_cross_w_corr_hat[0] + _cov[7][17]*rot_d_cross_w_corr_hat[1] + _cov[8][17]*rot_d_cross_w_corr_hat[2] + _cov[9][17]*rot_d_hat[0] + _cov[10][17]*rot_d_hat[1] + _cov[11][17]*rot_d_hat[2];
+            HP[18] = _cov[index][18] + _cov[6][18]*rot_d_cross_w_corr_hat[0] + _cov[7][18]*rot_d_cross_w_corr_hat[1] + _cov[8][18]*rot_d_cross_w_corr_hat[2] + _cov[9][18]*rot_d_hat[0] + _cov[10][18]*rot_d_hat[1] + _cov[11][18]*rot_d_hat[2];
+
+            if (_control_status.flags.mag_bias) {
+                HP[19] = _cov[index][19] + _cov[6][19]*rot_d_cross_w_corr_hat[0] + _cov[7][19]*rot_d_cross_w_corr_hat[1] + _cov[8][19]*rot_d_cross_w_corr_hat[2] + _cov[9][19]*rot_d_hat[0] + _cov[10][19]*rot_d_hat[1] + _cov[11][19]*rot_d_hat[2];
+                HP[20] = _cov[index][20] + _cov[6][20]*rot_d_cross_w_corr_hat[0] + _cov[7][20]*rot_d_cross_w_corr_hat[1] + _cov[8][20]*rot_d_cross_w_corr_hat[2] + _cov[9][20]*rot_d_hat[0] + _cov[10][20]*rot_d_hat[1] + _cov[11][20]*rot_d_hat[2];
+                HP[21] = _cov[index][21] + _cov[6][21]*rot_d_cross_w_corr_hat[0] + _cov[7][21]*rot_d_cross_w_corr_hat[1] + _cov[8][21]*rot_d_cross_w_corr_hat[2] + _cov[9][21]*rot_d_hat[0] + _cov[10][21]*rot_d_hat[1] + _cov[11][21]*rot_d_hat[2];     
+            }                                
+        }
+
+        if (_control_status.flags.wind) {
+            HP[22] = _cov[index][22] + _cov[6][22]*rot_d_cross_w_corr_hat[0] + _cov[7][22]*rot_d_cross_w_corr_hat[1] + _cov[8][22]*rot_d_cross_w_corr_hat[2] + _cov[9][22]*rot_d_hat[0] + _cov[10][22]*rot_d_hat[1] + _cov[11][22]*rot_d_hat[2];
+            HP[23] = _cov[index][23] + _cov[6][23]*rot_d_cross_w_corr_hat[0] + _cov[7][23]*rot_d_cross_w_corr_hat[1] + _cov[8][23]*rot_d_cross_w_corr_hat[2] + _cov[9][23]*rot_d_hat[0] + _cov[10][23]*rot_d_hat[1] + _cov[11][23]*rot_d_hat[2];
+        }
+
         // H * P * H' + R
         const float HPHT_plus_R = HP[index] + HP[6] * rot_d_cross_w_corr_hat[0] + HP[7] * rot_d_cross_w_corr_hat[1] + HP[8] * rot_d_cross_w_corr_hat[2] + HP[9] * rot_d_hat[0] + HP[10] * rot_d_hat[1] + HP[11] * rot_d_hat[2] + noise_std[dim] * noise_std[dim];
 
