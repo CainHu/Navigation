@@ -26,7 +26,9 @@ void ESKF::rotation_from_axis_angle(Matrix3f &r, const array<float, 3> &a) const
     * */
     const float a_norm_square = a[0] * a[0] + a[1] * a[1] + a[2] * a[2];
     if (a_norm_square < _dt2 * 1e-12f) {
-        r.setIdentity();
+        r << 1.f, -a[2], a[1],
+             a[2], 1.f, -a[0],
+             -a[1], a[0], 1.f;
     } else {
         const float a_norm = sqrtf(a_norm_square);
         const array<float, 3> a_unit = {a[0] / a_norm, a[1] / a_norm, a[2] / a_norm};
@@ -65,7 +67,11 @@ void ESKF::quaternion_from_axis_angle(Quaternionf &q, const array<float, 3> &a) 
 
     const float a_norm_square = a[0] * a[0] + a[1] * a[1] + a[2] * a[2];
     if (a_norm_square < _dt2 * 1e-12f) {
-        q.setIdentity();
+        const float q_norm = sqrtf(1.f + 0.25f * a_norm_square);
+        q.w() = 1.f / q_norm;
+        q.x() = 0.5f * a[0] / q_norm;
+        q.y() = 0.5f * a[1] / q_norm;
+        q.z() = 0.5f * a[2] / q_norm;
     } else {
         const float a_norm = sqrtf(a_norm_square);
         const array<float, 3> a_unit = {a[0] / a_norm, a[1] / a_norm, a[2] / a_norm};
@@ -179,12 +185,14 @@ unsigned char ESKF::conservative_posteriori_estimate(const array<float, ESKF::di
     }
 
     if (_control_status.flags.mag) {
+        // Don't correct error state unless (I - KH) * P >= 0 <=> P - PH'(HPH'+R)^-1HP >= 0
         for (unsigned char i = 16; i < 19; ++i) {
             if (HP[i] * HP[i] > HPHT_plus_R * _cov[i][i]) {
                 return 2;    
             }
         }
 
+        // K = P * H' * (H * P * H' + R)^-1
         for (unsigned char i = 16; i < 19; ++i) {
             K[i] = HP[i] / HPHT_plus_R;
         }
@@ -202,12 +210,14 @@ unsigned char ESKF::conservative_posteriori_estimate(const array<float, ESKF::di
         }
 
         if (_control_status.flags.mag_bias) {
+            // Don't correct error state unless (I - KH) * P >= 0 <=> P - PH'(HPH'+R)^-1HP >= 0
             for (unsigned char i = 19; i < 22; ++i) {
                 if (HP[i] * HP[i] > HPHT_plus_R * _cov[i][i]) {
                     return 2;    
                 }
             }
 
+            // K = P * H' * (H * P * H' + R)^-1
             for (unsigned char i = 19; i < 22; ++i) {
                 K[i] = HP[i] / HPHT_plus_R;
             }
@@ -227,12 +237,14 @@ unsigned char ESKF::conservative_posteriori_estimate(const array<float, ESKF::di
     }
 
     if (_control_status.flags.wind) {
+        // Don't correct error state unless (I - KH) * P >= 0 <=> P - PH'(HPH'+R)^-1HP >= 0
         for (unsigned char i = 22; i < 24; ++i) {
             if (HP[i] * HP[i] > HPHT_plus_R * _cov[i][i]) {
                 return 2;    
             }
         }
 
+        // K = P * H' * (H * P * H' + R)^-1
         for (unsigned char i = 22; i < 24; ++i) {
             K[i] = HP[i] / HPHT_plus_R;
         }

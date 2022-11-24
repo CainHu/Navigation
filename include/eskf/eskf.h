@@ -328,6 +328,26 @@ namespace eskf {
             }
         }
 
+        template <unsigned char N>
+        void copy_covariance_cols_to_rows(unsigned char start_index) {
+            unsigned char end_index = start_index + N;
+            for (unsigned char i = start_index; i < end_index; ++i) {
+                for (unsigned char j = 0; j < i; ++j) {
+                    _cov[i][j] = _cov[j][i];
+                }
+            }
+        }
+
+        template <unsigned char N>
+        void copy_covariance_rows_to_cols(unsigned char start_index) {
+            unsigned char end_index = start_index + N;
+            for (unsigned char i = start_index; i < end_index; ++i) {
+                for (unsigned char j = i + 1; j < dim; ++j) {
+                    _cov[j][i] = _cov[i][j];
+                }
+            }
+        }
+
         float kahan_summation(float sum_previous, float input, float &accumulator) {
             /*
             accumulator中记录了sum_previous + y中, y舍弃掉的部分

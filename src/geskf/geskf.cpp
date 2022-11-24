@@ -201,6 +201,86 @@ void GESKF::predict_covariance(const Vector3f &w, const Vector3f &a) {
     _cov[7][11] = var[84];
     _cov[8][11] = var[87];
 
+    // F *P *F' + Q
+    add_processing_covariance<3>(0);
+    if (_q_cov[3] == _q_cov[4]) {
+        if (_q_cov[4] == _q_cov[5]) {
+            add_processing_covariance<3>(3);
+        } else {
+            float sx = _q_cov[3] * _dt2;
+            float sz = _q_cov[5] * _dt2;
+            float r00_sx = _rot(0, 0) * sx;
+            float r01_sx = _rot(0, 1) * sx;
+            float r02_sz = _rot(0, 2) * sz;
+            float r00_sx_r10_plus_r01_sx_r11_plus_r02_sz_r12 = r00_sx * _rot(1, 0) + r01_sx * _rot(1, 1) + r02_sz * _rot(1, 2);
+            float r00_sx_r20_plus_r01_sx_r21_plus_r02_sz_r22 = r00_sx * _rot(2, 0) + r01_sx * _rot(2, 1) + r02_sz * _rot(2, 2);
+            float r10_r20_sx_plus_r11_r21_sx_plus_r12_r22_sz = (_rot(1, 0) * _rot(2, 0) + _rot(1, 1) * _rot(2, 1)) * sx + _rot(1, 2) * _rot(2, 2) * sz;
+
+            _cov[3][3] += kahan_summation(_cov[3][3], (_rot(0, 0) * _rot(0, 0) + _rot(0, 1) * _rot(0, 1)) * sx + _rot(0, 2) * _rot(0, 2) * sz, _accumulator_cov[3]);
+            _cov[3][4] += r00_sx_r10_plus_r01_sx_r11_plus_r02_sz_r12;
+            _cov[3][5] += r00_sx_r20_plus_r01_sx_r21_plus_r02_sz_r22;
+            _cov[4][4] += kahan_summation(_cov[4][4], (_rot(1, 0) * _rot(1, 0) + _rot(1, 1) * _rot(1, 1)) * sx + _rot(1, 2) * _rot(1, 2) * sz, _accumulator_cov[4]);
+            _cov[4][5] += r10_r20_sx_plus_r11_r21_sx_plus_r12_r22_sz;
+            _cov[5][5] += kahan_summation(_cov[5][5], (_rot(2, 0) * _rot(2, 0) + _rot(2, 1) * _rot(2, 1)) * sx + _rot(2, 2) * _rot(2, 2) * sz, _accumulator_cov[5]);
+        }
+    } else {
+        float sx = _q_cov[3] * _dt2;
+        float sy = _q_cov[4] * _dt2;
+        float sz = _q_cov[5] * _dt2;
+        float r00_sx = _rot(0, 0) * sx;
+        float r01_sy = _rot(0, 1) * sy;
+        float r02_sz = _rot(0, 2) * sz;
+        float r00_sx_r10_plus_r01_sy_r11_plus_r02_sz_r12 = r00_sx * _rot(1, 0) + r01_sy * _rot(1, 1) + r02_sz * _rot(1, 2);
+        float r00_sx_r20_plus_r01_sy_r21_plus_r02_sz_r22 = r00_sx * _rot(2, 0) + r01_sy * _rot(2, 1) + r02_sz * _rot(2, 2);
+        float r10_r20_sx_plus_r11_r21_sy_plus_r12_r22_sz = _rot(1, 0) * _rot(2, 0) * sx + _rot(1, 1) * _rot(2, 1) * sy + _rot(1, 2) * _rot(2, 2) * sz;
+        
+        _cov[3][3] += kahan_summation(_cov[3][3], _rot(0, 0) * _rot(0, 0) * sx + _rot(0, 1) * _rot(0, 1) * sy + _rot(0, 2) * _rot(0, 2) * sz, _accumulator_cov[3]);
+        _cov[3][4] += r00_sx_r10_plus_r01_sy_r11_plus_r02_sz_r12;
+        _cov[3][5] += r00_sx_r20_plus_r01_sy_r21_plus_r02_sz_r22;
+        _cov[4][4] += kahan_summation(_cov[4][4], _rot(1, 0) * _rot(1, 0) * sx + _rot(1, 1) * _rot(1, 1) * sy + _rot(1, 2) * _rot(1, 2) * sz, _accumulator_cov[4]);
+        _cov[4][5] += r10_r20_sx_plus_r11_r21_sy_plus_r12_r22_sz;
+        _cov[5][5] += kahan_summation(_cov[5][5], _rot(2, 0) * _rot(2, 0) * sx + _rot(2, 1) * _rot(2, 1) * sy + _rot(2, 2) * _rot(2, 2) * sz, _accumulator_cov[5]);
+    }
+    if (_q_cov[6] == _q_cov[7]) {
+        if (_q_cov[7] == _q_cov[8]) {
+            add_processing_covariance<3>(6);
+        } else {
+            float sx = _q_cov[6] * _dt2;
+            float sz = _q_cov[8] * _dt2;
+            float r00_sx = _rot(0, 0) * sx;
+            float r01_sx = _rot(0, 1) * sx;
+            float r02_sz = _rot(0, 2) * sz;
+            float r00_sx_r10_plus_r01_sx_r11_plus_r02_sz_r12 = r00_sx * _rot(1, 0) + r01_sx * _rot(1, 1) + r02_sz * _rot(1, 2);
+            float r00_sx_r20_plus_r01_sx_r21_plus_r02_sz_r22 = r00_sx * _rot(2, 0) + r01_sx * _rot(2, 1) + r02_sz * _rot(2, 2);
+            float r10_r20_sx_plus_r11_r21_sx_plus_r12_r22_sz = (_rot(1, 0) * _rot(2, 0) + _rot(1, 1) * _rot(2, 1)) * sx + _rot(1, 2) * _rot(2, 2) * sz;
+
+            _cov[6][6] += kahan_summation(_cov[6][6], (_rot(0, 0) * _rot(0, 0) + _rot(0, 1) * _rot(0, 1)) * sx + _rot(0, 2) * _rot(0, 2) * sz, _accumulator_cov[6]);
+            _cov[6][7] += r00_sx_r10_plus_r01_sx_r11_plus_r02_sz_r12;
+            _cov[6][8] += r00_sx_r20_plus_r01_sx_r21_plus_r02_sz_r22;
+            _cov[7][7] += kahan_summation(_cov[7][7], (_rot(1, 0) * _rot(1, 0) + _rot(1, 1) * _rot(1, 1)) * sx + _rot(1, 2) * _rot(1, 2) * sz, _accumulator_cov[7]);
+            _cov[7][8] += r10_r20_sx_plus_r11_r21_sx_plus_r12_r22_sz;
+            _cov[8][8] += kahan_summation(_cov[8][8], (_rot(2, 0) * _rot(2, 0) + _rot(2, 1) * _rot(2, 1)) * sx + _rot(2, 2) * _rot(2, 2) * sz, _accumulator_cov[8]);
+        }
+    } else {
+        float sx = _q_cov[6] * _dt2;
+        float sy = _q_cov[7] * _dt2;
+        float sz = _q_cov[8] * _dt2;
+        float r00_sx = _rot(0, 0) * sx;
+        float r01_sy = _rot(0, 1) * sy;
+        float r02_sz = _rot(0, 2) * sz;
+        float r00_sx_r10_plus_r01_sy_r11_plus_r02_sz_r12 = r00_sx * _rot(1, 0) + r01_sy * _rot(1, 1) + r02_sz * _rot(1, 2);
+        float r00_sx_r20_plus_r01_sy_r21_plus_r02_sz_r22 = r00_sx * _rot(2, 0) + r01_sy * _rot(2, 1) + r02_sz * _rot(2, 2);
+        float r10_r20_sx_plus_r11_r21_sy_plus_r12_r22_sz = _rot(1, 0) * _rot(2, 0) * sx + _rot(1, 1) * _rot(2, 1) * sy + _rot(1, 2) * _rot(2, 2) * sz;
+        
+        _cov[6][6] += kahan_summation(_cov[6][6], _rot(0, 0) * _rot(0, 0) * sx + _rot(0, 1) * _rot(0, 1) * sy + _rot(0, 2) * _rot(0, 2) * sz, _accumulator_cov[6]);
+        _cov[6][7] += r00_sx_r10_plus_r01_sy_r11_plus_r02_sz_r12;
+        _cov[6][8] += r00_sx_r20_plus_r01_sy_r21_plus_r02_sz_r22;
+        _cov[7][7] += kahan_summation(_cov[7][7], _rot(1, 0) * _rot(1, 0) * sx + _rot(1, 1) * _rot(1, 1) * sy + _rot(1, 2) * _rot(1, 2) * sz, _accumulator_cov[7]);
+        _cov[7][8] += r10_r20_sx_plus_r11_r21_sy_plus_r12_r22_sz;
+        _cov[8][8] += kahan_summation(_cov[8][8], _rot(2, 0) * _rot(2, 0) * sx + _rot(2, 1) * _rot(2, 1) * sy + _rot(2, 2) * _rot(2, 2) * sz, _accumulator_cov[8]);
+    }
+    add_processing_covariance<3>(9);
+
     if (_control_status.flags.acc_x_bias) {
         _cov[0][12] = var[5];
         _cov[1][12] = var[18];
@@ -349,86 +429,6 @@ void GESKF::predict_covariance(const Vector3f &w, const Vector3f &a) {
         add_processing_covariance<2>(22);
     }
 
-    // F *P *F' + Q
-    add_processing_covariance<3>(0);
-    if (_q_cov[3] == _q_cov[4]) {
-        if (_q_cov[4] == _q_cov[5]) {
-            add_processing_covariance<3>(3);
-        } else {
-            float sx = _q_cov[3] * _dt2;
-            float sz = _q_cov[5] * _dt2;
-            float r00_sx = _rot(0, 0) * sx;
-            float r01_sx = _rot(0, 1) * sx;
-            float r02_sz = _rot(0, 2) * sz;
-            float r00_sx_r10_plus_r01_sx_r11_plus_r02_sz_r12 = r00_sx * _rot(1, 0) + r01_sx * _rot(1, 1) + r02_sz * _rot(1, 2);
-            float r00_sx_r20_plus_r01_sx_r21_plus_r02_sz_r22 = r00_sx * _rot(2, 0) + r01_sx * _rot(2, 1) + r02_sz * _rot(2, 2);
-            float r10_r20_sx_plus_r11_r21_sx_plus_r12_r22_sz = (_rot(1, 0) * _rot(2, 0) + _rot(1, 1) * _rot(2, 1)) * sx + _rot(1, 2) * _rot(2, 2) * sz;
-
-            _cov[3][3] += kahan_summation(_cov[3][3], (_rot(0, 0) * _rot(0, 0) + _rot(0, 1) * _rot(0, 1)) * sx + _rot(0, 2) * _rot(0, 2) * sz, _accumulator_cov[3]);
-            _cov[3][4] += r00_sx_r10_plus_r01_sx_r11_plus_r02_sz_r12;
-            _cov[3][5] += r00_sx_r20_plus_r01_sx_r21_plus_r02_sz_r22;
-            _cov[4][4] += kahan_summation(_cov[4][4], (_rot(1, 0) * _rot(1, 0) + _rot(1, 1) * _rot(1, 1)) * sx + _rot(1, 2) * _rot(1, 2) * sz, _accumulator_cov[4]);
-            _cov[4][5] += r10_r20_sx_plus_r11_r21_sx_plus_r12_r22_sz;
-            _cov[5][5] += kahan_summation(_cov[5][5], (_rot(2, 0) * _rot(2, 0) + _rot(2, 1) * _rot(2, 1)) * sx + _rot(2, 2) * _rot(2, 2) * sz, _accumulator_cov[5]);
-        }
-    } else {
-        float sx = _q_cov[3] * _dt2;
-        float sy = _q_cov[4] * _dt2;
-        float sz = _q_cov[5] * _dt2;
-        float r00_sx = _rot(0, 0) * sx;
-        float r01_sy = _rot(0, 1) * sy;
-        float r02_sz = _rot(0, 2) * sz;
-        float r00_sx_r10_plus_r01_sy_r11_plus_r02_sz_r12 = r00_sx * _rot(1, 0) + r01_sy * _rot(1, 1) + r02_sz * _rot(1, 2);
-        float r00_sx_r20_plus_r01_sy_r21_plus_r02_sz_r22 = r00_sx * _rot(2, 0) + r01_sy * _rot(2, 1) + r02_sz * _rot(2, 2);
-        float r10_r20_sx_plus_r11_r21_sy_plus_r12_r22_sz = _rot(1, 0) * _rot(2, 0) * sx + _rot(1, 1) * _rot(2, 1) * sy + _rot(1, 2) * _rot(2, 2) * sz;
-        
-        _cov[3][3] += kahan_summation(_cov[3][3], _rot(0, 0) * _rot(0, 0) * sx + _rot(0, 1) * _rot(0, 1) * sy + _rot(0, 2) * _rot(0, 2) * sz, _accumulator_cov[3]);
-        _cov[3][4] += r00_sx_r10_plus_r01_sy_r11_plus_r02_sz_r12;
-        _cov[3][5] += r00_sx_r20_plus_r01_sy_r21_plus_r02_sz_r22;
-        _cov[4][4] += kahan_summation(_cov[4][4], _rot(1, 0) * _rot(1, 0) * sx + _rot(1, 1) * _rot(1, 1) * sy + _rot(1, 2) * _rot(1, 2) * sz, _accumulator_cov[4]);
-        _cov[4][5] += r10_r20_sx_plus_r11_r21_sy_plus_r12_r22_sz;
-        _cov[5][5] += kahan_summation(_cov[5][5], _rot(2, 0) * _rot(2, 0) * sx + _rot(2, 1) * _rot(2, 1) * sy + _rot(2, 2) * _rot(2, 2) * sz, _accumulator_cov[5]);
-    }
-    if (_q_cov[6] == _q_cov[7]) {
-        if (_q_cov[7] == _q_cov[8]) {
-            add_processing_covariance<3>(6);
-        } else {
-            float sx = _q_cov[6] * _dt2;
-            float sz = _q_cov[8] * _dt2;
-            float r00_sx = _rot(0, 0) * sx;
-            float r01_sx = _rot(0, 1) * sx;
-            float r02_sz = _rot(0, 2) * sz;
-            float r00_sx_r10_plus_r01_sx_r11_plus_r02_sz_r12 = r00_sx * _rot(1, 0) + r01_sx * _rot(1, 1) + r02_sz * _rot(1, 2);
-            float r00_sx_r20_plus_r01_sx_r21_plus_r02_sz_r22 = r00_sx * _rot(2, 0) + r01_sx * _rot(2, 1) + r02_sz * _rot(2, 2);
-            float r10_r20_sx_plus_r11_r21_sx_plus_r12_r22_sz = (_rot(1, 0) * _rot(2, 0) + _rot(1, 1) * _rot(2, 1)) * sx + _rot(1, 2) * _rot(2, 2) * sz;
-
-            _cov[6][6] += kahan_summation(_cov[6][6], (_rot(0, 0) * _rot(0, 0) + _rot(0, 1) * _rot(0, 1)) * sx + _rot(0, 2) * _rot(0, 2) * sz, _accumulator_cov[6]);
-            _cov[6][7] += r00_sx_r10_plus_r01_sx_r11_plus_r02_sz_r12;
-            _cov[6][8] += r00_sx_r20_plus_r01_sx_r21_plus_r02_sz_r22;
-            _cov[7][7] += kahan_summation(_cov[7][7], (_rot(1, 0) * _rot(1, 0) + _rot(1, 1) * _rot(1, 1)) * sx + _rot(1, 2) * _rot(1, 2) * sz, _accumulator_cov[7]);
-            _cov[7][8] += r10_r20_sx_plus_r11_r21_sx_plus_r12_r22_sz;
-            _cov[8][8] += kahan_summation(_cov[8][8], (_rot(2, 0) * _rot(2, 0) + _rot(2, 1) * _rot(2, 1)) * sx + _rot(2, 2) * _rot(2, 2) * sz, _accumulator_cov[8]);
-        }
-    } else {
-        float sx = _q_cov[6] * _dt2;
-        float sy = _q_cov[7] * _dt2;
-        float sz = _q_cov[8] * _dt2;
-        float r00_sx = _rot(0, 0) * sx;
-        float r01_sy = _rot(0, 1) * sy;
-        float r02_sz = _rot(0, 2) * sz;
-        float r00_sx_r10_plus_r01_sy_r11_plus_r02_sz_r12 = r00_sx * _rot(1, 0) + r01_sy * _rot(1, 1) + r02_sz * _rot(1, 2);
-        float r00_sx_r20_plus_r01_sy_r21_plus_r02_sz_r22 = r00_sx * _rot(2, 0) + r01_sy * _rot(2, 1) + r02_sz * _rot(2, 2);
-        float r10_r20_sx_plus_r11_r21_sy_plus_r12_r22_sz = _rot(1, 0) * _rot(2, 0) * sx + _rot(1, 1) * _rot(2, 1) * sy + _rot(1, 2) * _rot(2, 2) * sz;
-        
-        _cov[6][6] += kahan_summation(_cov[6][6], _rot(0, 0) * _rot(0, 0) * sx + _rot(0, 1) * _rot(0, 1) * sy + _rot(0, 2) * _rot(0, 2) * sz, _accumulator_cov[6]);
-        _cov[6][7] += r00_sx_r10_plus_r01_sy_r11_plus_r02_sz_r12;
-        _cov[6][8] += r00_sx_r20_plus_r01_sy_r21_plus_r02_sz_r22;
-        _cov[7][7] += kahan_summation(_cov[7][7], _rot(1, 0) * _rot(1, 0) * sx + _rot(1, 1) * _rot(1, 1) * sy + _rot(1, 2) * _rot(1, 2) * sz, _accumulator_cov[7]);
-        _cov[7][8] += r10_r20_sx_plus_r11_r21_sy_plus_r12_r22_sz;
-        _cov[8][8] += kahan_summation(_cov[8][8], _rot(2, 0) * _rot(2, 0) * sx + _rot(2, 1) * _rot(2, 1) * sy + _rot(2, 2) * _rot(2, 2) * sz, _accumulator_cov[8]);
-    }
-    add_processing_covariance<3>(9);
-
     regular_covariance_to_symmetric<ESKF::dim>(0);
 }
 
@@ -534,6 +534,7 @@ unsigned char GESKF::fuse_position(const Vector3f &pos, const Vector3f &w, const
                 break;
         }
     }  
+    
     regular_covariance_to_symmetric<ESKF::dim>(0);
 
     return info;
@@ -649,6 +650,7 @@ unsigned char GESKF::fuse_velocity(const Vector3f &vel, const Vector3f &w, const
                 break;
         }
     }
+    
     regular_covariance_to_symmetric<ESKF::dim>(0);
 
     return info;
