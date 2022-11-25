@@ -621,6 +621,197 @@ unsigned char LESKF::fuse_velocity(const Vector3f &vel, const Vector3f &w, const
     return info;
 }
 
+unsigned char LESKF::fuse_magnet(const Vector3f &mag, const Vector3f &w, const Vector3f &a, 
+                                 const Vector3f &noise_std, const Vector3f &gate) {
+    unsigned char info = 0;                                
+    if (!_control_status.flags.mag) {
+        return info;
+    }        
+
+    // y - bm
+    const Vector3f mag_corr = mag - _bm;
+
+    // h = R' * m
+    const Vector3f m_body = _rot.transpose() * _m;
+
+    // (R' * m)^
+    const array<array<float, 3>, 3> m_body_hat {
+        {{0.f, -m_body[2], m_body[1]},
+         {m_body[2], 0.f, -m_body[0]},
+         {-m_body[1], m_body[0], 0.f}}
+    };
+
+    // Sequential Kalman Filter
+    for (unsigned int dim = 0; dim < 3; ++dim) {
+        if (!isfinite(noise_std[dim])) {
+            continue;
+        }
+
+        /*
+        K = P * H * (H * P * H' + R)^-1
+        x = x + K * (y - h)
+        P = (I - K * H) * P
+
+        where, H = [O, O, (R'*m)^, O, O, O, R', I, O]
+               h = R' * m
+        */
+
+        // H * P  or  P * H'
+        const unsigned int index = 19 + dim;
+        array<float, ESKF::dim> HP = {_cov[0][index] + _cov[0][6]*m_body_hat[dim][0] + _cov[0][7]*m_body_hat[dim][1] + _cov[0][8]*m_body_hat[dim][2] + _cov[0][16]*_rot(0, dim) + _cov[0][17]*_rot(1, dim) + _cov[0][18]*_rot(2, dim),
+                                        _cov[1][index] + _cov[1][6]*m_body_hat[dim][0] + _cov[1][7]*m_body_hat[dim][1] + _cov[1][8]*m_body_hat[dim][2] + _cov[1][16]*_rot(0, dim) + _cov[1][17]*_rot(1, dim) + _cov[1][18]*_rot(2, dim),
+                                        _cov[2][index] + _cov[2][6]*m_body_hat[dim][0] + _cov[2][7]*m_body_hat[dim][1] + _cov[2][8]*m_body_hat[dim][2] + _cov[2][16]*_rot(0, dim) + _cov[2][17]*_rot(1, dim) + _cov[2][18]*_rot(2, dim),
+                                        _cov[3][index] + _cov[3][6]*m_body_hat[dim][0] + _cov[3][7]*m_body_hat[dim][1] + _cov[3][8]*m_body_hat[dim][2] + _cov[3][16]*_rot(0, dim) + _cov[3][17]*_rot(1, dim) + _cov[3][18]*_rot(2, dim),
+                                        _cov[4][index] + _cov[4][6]*m_body_hat[dim][0] + _cov[4][7]*m_body_hat[dim][1] + _cov[4][8]*m_body_hat[dim][2] + _cov[4][16]*_rot(0, dim) + _cov[4][17]*_rot(1, dim) + _cov[4][18]*_rot(2, dim),
+                                        _cov[5][index] + _cov[5][6]*m_body_hat[dim][0] + _cov[5][7]*m_body_hat[dim][1] + _cov[5][8]*m_body_hat[dim][2] + _cov[5][16]*_rot(0, dim) + _cov[5][17]*_rot(1, dim) + _cov[5][18]*_rot(2, dim),
+                                        _cov[6][index] + _cov[6][6]*m_body_hat[dim][0] + _cov[6][7]*m_body_hat[dim][1] + _cov[6][8]*m_body_hat[dim][2] + _cov[6][16]*_rot(0, dim) + _cov[6][17]*_rot(1, dim) + _cov[6][18]*_rot(2, dim),
+                                        _cov[7][index] + _cov[6][7]*m_body_hat[dim][0] + _cov[7][7]*m_body_hat[dim][1] + _cov[7][8]*m_body_hat[dim][2] + _cov[7][16]*_rot(0, dim) + _cov[7][17]*_rot(1, dim) + _cov[7][18]*_rot(2, dim),
+                                        _cov[8][index] + _cov[6][8]*m_body_hat[dim][0] + _cov[7][8]*m_body_hat[dim][1] + _cov[8][8]*m_body_hat[dim][2] + _cov[8][16]*_rot(0, dim) + _cov[8][17]*_rot(1, dim) + _cov[8][18]*_rot(2, dim),
+                                        _cov[9][index] + _cov[6][9]*m_body_hat[dim][0] + _cov[7][9]*m_body_hat[dim][1] + _cov[8][9]*m_body_hat[dim][2] + _cov[9][16]*_rot(0, dim) + _cov[9][17]*_rot(1, dim) + _cov[9][18]*_rot(2, dim),
+                                        _cov[10][index] + _cov[6][10]*m_body_hat[dim][0] + _cov[7][10]*m_body_hat[dim][1] + _cov[8][10]*m_body_hat[dim][2] + _cov[10][16]*_rot(0, dim) + _cov[10][17]*_rot(1, dim) + _cov[10][18]*_rot(2, dim),
+                                        _cov[11][index] + _cov[6][11]*m_body_hat[dim][0] + _cov[7][11]*m_body_hat[dim][1] + _cov[8][11]*m_body_hat[dim][2] + _cov[11][16]*_rot(0, dim) + _cov[11][17]*_rot(1, dim) + _cov[11][18]*_rot(2, dim),
+                                        _cov[12][index] + _cov[6][12]*m_body_hat[dim][0] + _cov[7][12]*m_body_hat[dim][1] + _cov[8][12]*m_body_hat[dim][2] + _cov[12][16]*_rot(0, dim) + _cov[12][17]*_rot(1, dim) + _cov[12][18]*_rot(2, dim),
+                                        _cov[13][index] + _cov[6][13]*m_body_hat[dim][0] + _cov[7][13]*m_body_hat[dim][1] + _cov[8][13]*m_body_hat[dim][2] + _cov[13][16]*_rot(0, dim) + _cov[13][17]*_rot(1, dim) + _cov[13][18]*_rot(2, dim),
+                                        _cov[14][index] + _cov[6][14]*m_body_hat[dim][0] + _cov[7][14]*m_body_hat[dim][1] + _cov[8][14]*m_body_hat[dim][2] + _cov[14][16]*_rot(0, dim) + _cov[14][17]*_rot(1, dim) + _cov[14][18]*_rot(2, dim),
+                                        _cov[15][index] + _cov[6][15]*m_body_hat[dim][0] + _cov[7][15]*m_body_hat[dim][1] + _cov[8][15]*m_body_hat[dim][2] + _cov[15][16]*_rot(0, dim) + _cov[15][17]*_rot(1, dim) + _cov[15][18]*_rot(2, dim),
+                                        _cov[16][index] + _cov[6][16]*m_body_hat[dim][0] + _cov[7][16]*m_body_hat[dim][1] + _cov[8][16]*m_body_hat[dim][2] + _cov[16][16]*_rot(0, dim) + _cov[16][17]*_rot(1, dim) + _cov[16][18]*_rot(2, dim),
+                                        _cov[17][index] + _cov[6][17]*m_body_hat[dim][0] + _cov[7][17]*m_body_hat[dim][1] + _cov[8][17]*m_body_hat[dim][2] + _cov[16][17]*_rot(0, dim) + _cov[17][17]*_rot(1, dim) + _cov[17][18]*_rot(2, dim),
+                                        _cov[18][index] + _cov[6][18]*m_body_hat[dim][0] + _cov[7][18]*m_body_hat[dim][1] + _cov[8][18]*m_body_hat[dim][2] + _cov[16][18]*_rot(0, dim) + _cov[17][18]*_rot(1, dim) + _cov[18][18]*_rot(2, dim),
+                                        0.f, 0.f, 0.f, 0.f, 0.f};
+
+        if (_control_status.flags.mag_bias) {
+            const float cov_20_index = (dim == 2) ? _cov[20][index] : _cov[index][20];
+            HP[19] = _cov[19][index] + _cov[6][19]*m_body_hat[dim][0] + _cov[7][19]*m_body_hat[dim][1] + _cov[8][19]*m_body_hat[dim][2] + _cov[16][19]*_rot(0, dim) + _cov[17][19]*_rot(1, dim) + _cov[18][19]*_rot(2, dim);
+            HP[20] = cov_20_index + _cov[6][20]*m_body_hat[dim][0] + _cov[7][20]*m_body_hat[dim][1] + _cov[8][20]*m_body_hat[dim][2] + _cov[16][20]*_rot(0, dim) + _cov[17][20]*_rot(1, dim) + _cov[18][20]*_rot(2, dim);
+            HP[21] = _cov[index][21] + _cov[6][21]*m_body_hat[dim][0] + _cov[7][21]*m_body_hat[dim][1] + _cov[8][21]*m_body_hat[dim][2] + _cov[16][21]*_rot(0, dim) + _cov[17][21]*_rot(1, dim) + _cov[18][21]*_rot(2, dim);                           
+        }
+
+        if (_control_status.flags.wind) {
+            HP[22] = _cov[index][22] + _cov[6][22]*m_body_hat[dim][0] + _cov[7][22]*m_body_hat[dim][1] + _cov[8][22]*m_body_hat[dim][2] + _cov[16][22]*_rot(0, dim) + _cov[17][22]*_rot(1, dim) + _cov[18][22]*_rot(2, dim);
+            HP[23] = _cov[index][23] + _cov[6][23]*m_body_hat[dim][0] + _cov[7][23]*m_body_hat[dim][1] + _cov[8][23]*m_body_hat[dim][2] + _cov[16][23]*_rot(0, dim) + _cov[17][23]*_rot(1, dim) + _cov[18][23]*_rot(2, dim);
+        }
+
+        // H * P * H' + R
+        const float HPHT_plus_R = HP[index] + HP[6] * m_body_hat[dim][0] + HP[7] * m_body_hat[dim][1] + HP[8] * m_body_hat[dim][2] + HP[16] * _rot(0, dim) + HP[17] * _rot(1, dim) + HP[18] * _rot(2, dim) + noise_std[dim] * noise_std[dim];
+
+        // h = m
+        // e = (y - bm) - R' * m
+        const float obs_error = mag_corr[dim] - (_rot(0, dim) * _m[0] +  _rot(1, dim) * _m[1] + _rot(2, dim) * _m[2]);
+
+        /*
+        K = P * H' * (H * P * H' + R)^-1
+        P = P - K * H * P
+
+        e = (y - bm) - R'*m
+        x = x + K * e
+        */
+        switch (conservative_posteriori_estimate(HP, HPHT_plus_R, obs_error, gate[dim])) {
+            case 0:
+                break;
+            case 1:
+                info |= (1 << dim);
+                break;
+            case 2:
+                info |= (8 << dim);    
+                reset_covariance_matrix(index, index + 1, _q_cov);
+                break;
+        }
+    }
+    
+    regular_covariance_to_symmetric<ESKF::dim>(0);
+
+    return info;                 
+}
+
+unsigned char LESKF::fuse_declination(const float &dec, const Vector3f &w, const Vector3f &a, const float &noise_std, const float &gate) {
+    unsigned char info = 0;                                
+    if (!_control_status.flags.mag) {
+        return info;
+    }        
+
+    // cosψ, sinψ
+    const float cos_dec = cosf(dec);
+    const float sin_dec = sinf(dec);
+
+    // Sequential Kalman Filter
+    if (!isfinite(noise_std)) {
+        return info;
+    }
+
+    /*
+    K = P * H * (H * P * H' + R)^-1
+    x = x + K * (y - h)
+    P = (I - K * H) * P
+
+    where, H = [O, O, O, O, O, O, [sinψ, -cosψ, 0], O, O]
+           h = [mx, my]
+    */
+
+    // H * P  or  P * H'
+    array<float, ESKF::dim> HP = {_cov[0][16]*sin_dec - cos_dec*_cov[0][17],
+                                    _cov[1][16]*sin_dec - cos_dec*_cov[1][17],
+                                    _cov[2][16]*sin_dec - cos_dec*_cov[2][17],
+                                    _cov[3][16]*sin_dec - cos_dec*_cov[3][17],
+                                    _cov[4][16]*sin_dec - cos_dec*_cov[4][17],
+                                    _cov[5][16]*sin_dec - cos_dec*_cov[5][17],
+                                    _cov[6][16]*sin_dec - cos_dec*_cov[6][17],
+                                    _cov[7][16]*sin_dec - cos_dec*_cov[7][17],
+                                    _cov[8][16]*sin_dec - cos_dec*_cov[8][17],
+                                    _cov[9][16]*sin_dec - cos_dec*_cov[9][17],
+                                    _cov[10][16]*sin_dec - cos_dec*_cov[10][17],
+                                    _cov[11][16]*sin_dec - cos_dec*_cov[11][17],
+                                    _cov[12][16]*sin_dec - cos_dec*_cov[12][17],
+                                    _cov[13][16]*sin_dec - cos_dec*_cov[13][17],
+                                    _cov[14][16]*sin_dec - cos_dec*_cov[14][17],
+                                    _cov[15][16]*sin_dec - cos_dec*_cov[15][17],
+                                    _cov[16][16]*sin_dec - cos_dec*_cov[16][17],
+                                    _cov[16][17]*sin_dec - cos_dec*_cov[17][17],
+                                    _cov[16][18]*sin_dec - cos_dec*_cov[17][18],
+                                    0.f, 0.f, 0.f, 0.f, 0.f};
+
+    if (_control_status.flags.mag_bias) {
+        HP[19] = _cov[16][19]*sin_dec - cos_dec*_cov[17][19];
+        HP[20] = _cov[16][20]*sin_dec - cos_dec*_cov[17][20];
+        HP[21] = _cov[16][21]*sin_dec - cos_dec*_cov[17][21];
+                                                           
+    }
+
+    if (_control_status.flags.wind) {
+        HP[22] = _cov[16][22]*sin_dec - cos_dec*_cov[17][22];
+        HP[23] = _cov[16][23]*sin_dec - cos_dec*_cov[17][23];
+    }
+
+    // H * P * H' + R
+    const float HPHT_plus_R = HP[16] * sin_dec - HP[17] * cos_dec;
+
+    // h = [mx, my]
+    // e = [cosψ, sinψ] X [mx, my]
+    const float obs_error = cos_dec * _m[1] - sin_dec * _m[0];
+
+    /*
+    K = P * H' * (H * P * H' + R)^-1
+    P = P - K * H * P
+
+    e = [cosψ, sinψ] X [mx, my]
+    x = x + K * e
+    */
+    switch (conservative_posteriori_estimate(HP, HPHT_plus_R, obs_error, gate)) {
+        case 0:
+            break;
+        case 1:
+            info |= (1 << dim);
+            break;
+        case 2:
+            info |= (8 << dim);    
+            reset_covariance_matrix(16, 18, _q_cov);
+            break;
+    }
+    
+    regular_covariance_to_symmetric<ESKF::dim>(0);
+
+    return info;
+}
+
 void LESKF::correct_state() {
     // for (float &es : _error_state) {
     //     cout << es << endl;
@@ -635,6 +826,8 @@ void LESKF::correct_state() {
     bg = bg + δbg
     ba = ba + δba
     g = g + δg
+    m = m + δm
+    bm = bm + δbm
     */
     for (unsigned char i = 0; i < 3; ++i) {
         _p[i] += _error_state[i];
@@ -647,13 +840,6 @@ void LESKF::correct_state() {
     _g += _error_state[15];
     _w[0] += _error_state[22];
     _w[1] += _error_state[23];
-    
-    // // R = R * Exp(δθ)
-    // Matrix3f delta_rot;
-    // array<float, 3> delta_theta = {_error_state[6], _error_state[7], _error_state[8]};
-    // rotation_from_axis_angle(delta_rot, delta_theta);
-    // Matrix3f rot = _rot;
-    // _rot = rot * delta_rot;
 
     // q = q * Exp(δθ)
     Quaternionf delta_q;

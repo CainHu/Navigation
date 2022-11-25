@@ -24,6 +24,8 @@ namespace geskf {
         // Posteriori
         unsigned char fuse_position(const Vector3f &pos, const Vector3f &w, const Vector3f &a, const Vector3f &dis, const Vector3f &noise_std, const Vector3f &gate);
         unsigned char fuse_velocity(const Vector3f &vel, const Vector3f &w, const Vector3f &a, const Vector3f &dis, const Vector3f &noise_std, const Vector3f &gate);
+        unsigned char fuse_magnet(const Vector3f &mag, const Vector3f &w, const Vector3f &a, const Vector3f &noise_std, const Vector3f &gate);
+        unsigned char fuse_declination(const float &dec, const Vector3f &w, const Vector3f &a, const float &noise_std, const float &gate);
         void correct_state();
         void correct_covariance();
     };

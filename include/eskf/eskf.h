@@ -40,8 +40,8 @@ namespace eskf {
     public:
         constexpr static unsigned char dim {24};
 
-        ESKF(float dt, const float g=9.8f) 
-             : _g_init(g), _g(g), _dt(dt), _dt2(dt * dt) {
+        ESKF(float dt, const float g=9.8f, const float mx=1.f, const float my=0.f, const float mz=0.f) 
+             : _g_init(g), _g(g), _m_init(mx, my, mz), _m(mx, my, mz), _dt(dt), _dt2(dt * dt) {   
             _rot.setIdentity();
             reset_priori_covariance_matrix();
             reset_state();
@@ -61,6 +61,9 @@ namespace eskf {
         // Posteriori
         virtual unsigned char fuse_position(const Vector3f &pos, const Vector3f &w, const Vector3f &a, const Vector3f &dis, const Vector3f &noise_std, const Vector3f &gate) = 0;
         virtual unsigned char fuse_velocity(const Vector3f &vel, const Vector3f &w, const Vector3f &a, const Vector3f &dis, const Vector3f &noise_std, const Vector3f &gate) = 0;
+        virtual unsigned char fuse_magnet(const Vector3f &mag, const Vector3f &w, const Vector3f &a, const Vector3f &noise_std, const Vector3f &gate) = 0;
+        virtual unsigned char fuse_declination(const float &dec, const Vector3f &w, const Vector3f &a, const float &noise_std, const float &gate) = 0;
+
         virtual void correct_state() = 0;
         virtual void correct_covariance() = 0;
 
@@ -71,7 +74,7 @@ namespace eskf {
             _bg.setZero();
             _ba.setZero();
             _g = _g_init;
-            _m.setZero();
+            _m = _m_init;
             _bm.setZero();
             _w.setZero();
             _rot.setIdentity();
@@ -266,7 +269,7 @@ namespace eskf {
         void set_velocity(const Vector3f &v) { _v = v; };
         void set_drift_gyro(const Vector3f &bg) { _bg = bg; };
         void set_drift_acc(const Vector3f &ba) { _ba = ba; };
-        void set_magnet(const Vector3f &m) { _m = m; };
+        void set_magnet(const Vector3f &m) { _m_init = m; _m = m; };
         void set_drift_magnet(const Vector3f &bm) { _bm = bm; };
         void set_wind(const Vector2f &w) { _w = w; };
         void set_attitude(const Matrix3f &r) { _rot = r; _q = _rot; };
@@ -277,7 +280,7 @@ namespace eskf {
         void set_drift_saccelerometer_tandard_deviation(const Vector3f &std) { _q_cov[12] = std[0] * std[0]; _q_cov[13] = std[1] * std[1]; _q_cov[14] = std[2] * std[2]; }
         void set_drift_gyroscope_standard_deviation(const Vector3f &std) { _q_cov[9] = std[0] * std[0]; _q_cov[10] = std[1] * std[1]; _q_cov[11] = std[2] * std[2]; }
         void set_gravity_standard_deviation(const float std) { _q_cov[15] = std * std; };
-        void set_magnetometer_standard_deviation(const Vector3f &std) { _q_cov[16] = std[0] * std[0]; _q_cov[17] = std[1] * std[1]; _q_cov[18] = std[2] * std[2]; }
+        void set_magnet_standard_deviation(const Vector3f &std) { _q_cov[16] = std[0] * std[0]; _q_cov[17] = std[1] * std[1]; _q_cov[18] = std[2] * std[2]; }
         void set_drift_magnetometer_standard_deviation(const Vector3f &std) { _q_cov[19] = std[0] * std[0]; _q_cov[20] = std[1] * std[1]; _q_cov[21] = std[2] * std[2]; }
         void set_wind_standard_deviation(const Vector2f &std) { _q_cov[22] = std[0] * std[0]; _q_cov[23] = std[1] * std[1]; }
         void set_processing_standard_deviation(const float std) { for (unsigned char i = 0; i < dim; ++i) { _q_cov[i] += std * std; } };
@@ -288,6 +291,7 @@ namespace eskf {
         innovation_fault_status _innovation_fault_status {0};
 
         float _g_init;                 // Initial gravity constant
+        Vector3f _m_init;              // Initial magnetic field
 
         float _dt;                      // Sample time of IMU
         float _dt2;                     // Square of sample time

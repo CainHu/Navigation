@@ -617,6 +617,195 @@ unsigned char LIEKF::fuse_velocity(const Vector3f &vel, const Vector3f &w, const
     return info;
 }
 
+unsigned char LIEKF::fuse_magnet(const Vector3f &mag, const Vector3f &w, const Vector3f &a, 
+                                 const Vector3f &noise_std, const Vector3f &gate) {
+    unsigned char info = 0;                                
+    if (!_control_status.flags.mag) {
+        return info;
+    }        
+
+    // y - bm
+    const Vector3f mag_corr = mag - _bm;
+
+    // m^ * R
+    const array<array<float, 3>, 3> m_hat_rot {
+        {{_rot(2, 0)*_m[1] - _rot(1, 0)*_m[2],_rot(2, 1)*_m[1] - _rot(1, 1)*_m[2], _rot(2, 2)*_m[1] - _rot(1, 2)*_m[2]},
+         {_rot(0, 0)*_m[2] - _rot(2, 0)*_m[0],_rot(0, 1)*_m[2] - _rot(2, 1)*_m[0], _rot(0, 2)*_m[2] - _rot(2, 2)*_m[0]},
+         {_rot(1, 0)*_m[0] - _rot(0, 0)*_m[1],_rot(1, 1)*_m[0] - _rot(0, 1)*_m[1], _rot(1, 2)*_m[0] - _rot(0, 2)*_m[1]}}
+    };       
+
+    // Sequential Kalman Filter
+    for (unsigned int dim = 0; dim < 3; ++dim) {
+        if (!isfinite(noise_std[dim])) {
+            continue;
+        }
+
+        /*
+        K = P * H * (H * P * H' + R)^-1
+        x = x + K * (y - h)
+        P = (I - K * H) * P
+
+        where, H = [O, O, m^*R, O, O, O, I, R, O]
+               h = m
+        */
+
+        // H * P  or  P * H'
+        const unsigned int index = 16 + dim;
+        const float cov_17_index = (dim == 2) ? _cov[17][index] : _cov[index][17];
+        array<float, ESKF::dim> HP = {_cov[0][index] + _cov[0][6]*m_hat_rot[dim][0] + _cov[0][7]*m_hat_rot[dim][1] + _cov[0][8]*m_hat_rot[dim][2] + _cov[0][19]*_rot(dim, 0) + _cov[0][20]*_rot(dim, 1) + _cov[0][21]*_rot(dim, 2),
+                                        _cov[1][index] + _cov[1][6]*m_hat_rot[dim][0] + _cov[1][7]*m_hat_rot[dim][1] + _cov[1][8]*m_hat_rot[dim][2] + _cov[1][19]*_rot(dim, 0) + _cov[1][20]*_rot(dim, 1) + _cov[1][21]*_rot(dim, 2),
+                                        _cov[2][index] + _cov[2][6]*m_hat_rot[dim][0] + _cov[2][7]*m_hat_rot[dim][1] + _cov[2][8]*m_hat_rot[dim][2] + _cov[2][19]*_rot(dim, 0) + _cov[2][20]*_rot(dim, 1) + _cov[2][21]*_rot(dim, 2),
+                                        _cov[3][index] + _cov[3][6]*m_hat_rot[dim][0] + _cov[3][7]*m_hat_rot[dim][1] + _cov[3][8]*m_hat_rot[dim][2] + _cov[3][19]*_rot(dim, 0) + _cov[3][20]*_rot(dim, 1) + _cov[3][21]*_rot(dim, 2),
+                                        _cov[4][index] + _cov[4][6]*m_hat_rot[dim][0] + _cov[4][7]*m_hat_rot[dim][1] + _cov[4][8]*m_hat_rot[dim][2] + _cov[4][19]*_rot(dim, 0) + _cov[4][20]*_rot(dim, 1) + _cov[4][21]*_rot(dim, 2),
+                                        _cov[5][index] + _cov[5][6]*m_hat_rot[dim][0] + _cov[5][7]*m_hat_rot[dim][1] + _cov[5][8]*m_hat_rot[dim][2] + _cov[5][19]*_rot(dim, 0) + _cov[5][20]*_rot(dim, 1) + _cov[5][21]*_rot(dim, 2),
+                                        _cov[6][index] + _cov[6][6]*m_hat_rot[dim][0] + _cov[6][7]*m_hat_rot[dim][1] + _cov[6][8]*m_hat_rot[dim][2] + _cov[6][19]*_rot(dim, 0) + _cov[6][20]*_rot(dim, 1) + _cov[6][21]*_rot(dim, 2),
+                                        _cov[7][index] + _cov[6][7]*m_hat_rot[dim][0] + _cov[7][7]*m_hat_rot[dim][1] + _cov[7][8]*m_hat_rot[dim][2] + _cov[7][19]*_rot(dim, 0) + _cov[7][20]*_rot(dim, 1) + _cov[7][21]*_rot(dim, 2),
+                                        _cov[8][index] + _cov[6][8]*m_hat_rot[dim][0] + _cov[7][8]*m_hat_rot[dim][1] + _cov[8][8]*m_hat_rot[dim][2] + _cov[8][19]*_rot(dim, 0) + _cov[8][20]*_rot(dim, 1) + _cov[8][21]*_rot(dim, 2),
+                                        _cov[9][index] + _cov[6][9]*m_hat_rot[dim][0] + _cov[7][9]*m_hat_rot[dim][1] + _cov[8][9]*m_hat_rot[dim][2] + _cov[9][19]*_rot(dim, 0) + _cov[9][20]*_rot(dim, 1) + _cov[9][21]*_rot(dim, 2),
+                                        _cov[10][index] + _cov[6][10]*m_hat_rot[dim][0] + _cov[7][10]*m_hat_rot[dim][1] + _cov[8][10]*m_hat_rot[dim][2] + _cov[10][19]*_rot(dim, 0) + _cov[10][20]*_rot(dim, 1) + _cov[10][21]*_rot(dim, 2),
+                                        _cov[11][index] + _cov[6][11]*m_hat_rot[dim][0] + _cov[7][11]*m_hat_rot[dim][1] + _cov[8][11]*m_hat_rot[dim][2] + _cov[11][19]*_rot(dim, 0) + _cov[11][20]*_rot(dim, 1) + _cov[11][21]*_rot(dim, 2),
+                                        _cov[12][index] + _cov[6][12]*m_hat_rot[dim][0] + _cov[7][12]*m_hat_rot[dim][1] + _cov[8][12]*m_hat_rot[dim][2] + _cov[12][19]*_rot(dim, 0) + _cov[12][20]*_rot(dim, 1) + _cov[12][21]*_rot(dim, 2),
+                                        _cov[13][index] + _cov[6][13]*m_hat_rot[dim][0] + _cov[7][13]*m_hat_rot[dim][1] + _cov[8][13]*m_hat_rot[dim][2] + _cov[13][19]*_rot(dim, 0) + _cov[13][20]*_rot(dim, 1) + _cov[13][21]*_rot(dim, 2),
+                                        _cov[14][index] + _cov[6][14]*m_hat_rot[dim][0] + _cov[7][14]*m_hat_rot[dim][1] + _cov[8][14]*m_hat_rot[dim][2] + _cov[14][19]*_rot(dim, 0) + _cov[14][20]*_rot(dim, 1) + _cov[14][21]*_rot(dim, 2),
+                                        _cov[15][index] + _cov[6][15]*m_hat_rot[dim][0] + _cov[7][15]*m_hat_rot[dim][1] + _cov[8][15]*m_hat_rot[dim][2] + _cov[15][19]*_rot(dim, 0) + _cov[15][20]*_rot(dim, 1) + _cov[15][21]*_rot(dim, 2),
+                                        _cov[16][index] + _cov[6][16]*m_hat_rot[dim][0] + _cov[7][16]*m_hat_rot[dim][1] + _cov[8][16]*m_hat_rot[dim][2] + _cov[16][19]*_rot(dim, 0) + _cov[16][20]*_rot(dim, 1) + _cov[16][21]*_rot(dim, 2),
+                                        cov_17_index + _cov[6][17]*m_hat_rot[dim][0] + _cov[7][17]*m_hat_rot[dim][1] + _cov[8][17]*m_hat_rot[dim][2] + _cov[17][19]*_rot(dim, 0) + _cov[17][20]*_rot(dim, 1) + _cov[17][21]*_rot(dim, 2),
+                                        _cov[index][18] + _cov[6][18]*m_hat_rot[dim][0] + _cov[7][18]*m_hat_rot[dim][1] + _cov[8][18]*m_hat_rot[dim][2] + _cov[18][19]*_rot(dim, 0) + _cov[18][20]*_rot(dim, 1) + _cov[18][21]*_rot(dim, 2),
+                                        0.f, 0.f, 0.f, 0.f, 0.f};
+
+        if (_control_status.flags.mag_bias) {
+            HP[19] = _cov[index][19] + _cov[6][19]*m_hat_rot[dim][0] + _cov[7][19]*m_hat_rot[dim][1] + _cov[8][19]*m_hat_rot[dim][2] + _cov[19][19]*_rot(dim, 0) + _cov[19][20]*_rot(dim, 1) + _cov[19][21]*_rot(dim, 2);
+            HP[20] = _cov[index][20] + _cov[6][20]*m_hat_rot[dim][0] + _cov[7][20]*m_hat_rot[dim][1] + _cov[8][20]*m_hat_rot[dim][2] + _cov[19][20]*_rot(dim, 0) + _cov[20][20]*_rot(dim, 1) + _cov[20][21]*_rot(dim, 2);
+            HP[21] = _cov[index][21] + _cov[6][21]*m_hat_rot[dim][0] + _cov[7][21]*m_hat_rot[dim][1] + _cov[8][21]*m_hat_rot[dim][2] + _cov[19][21]*_rot(dim, 0) + _cov[20][21]*_rot(dim, 1) + _cov[21][21]*_rot(dim, 2);
+                                        
+        }
+
+        if (_control_status.flags.wind) {
+            HP[22] = _cov[index][22] + _cov[6][22]*m_hat_rot[dim][0] + _cov[7][22]*m_hat_rot[dim][1] + _cov[8][22]*m_hat_rot[dim][2] + _cov[19][22]*_rot(dim, 0) + _cov[20][22]*_rot(dim, 1) + _cov[21][22]*_rot(dim, 2);
+            HP[23] = _cov[index][23] + _cov[6][23]*m_hat_rot[dim][0] + _cov[7][23]*m_hat_rot[dim][1] + _cov[8][23]*m_hat_rot[dim][2] + _cov[19][23]*_rot(dim, 0) + _cov[20][23]*_rot(dim, 1) + _cov[21][23]*_rot(dim, 2);
+        }
+
+        // H * P * H' + R
+        const float HPHT_plus_R = HP[index] + HP[6] * m_hat_rot[dim][0] + HP[7] * m_hat_rot[dim][1] + HP[8] * m_hat_rot[dim][2] + HP[19] * _rot(dim, 0) + HP[20] * _rot(dim, 1) + HP[21] * _rot(dim, 2) + noise_std[dim] * noise_std[dim];
+
+        // h = m
+        // e = R * (y - bm) - m
+        const float obs_error = _rot(dim, 0) * mag_corr[0] + _rot(dim, 1) * mag_corr[1] + _rot(dim, 2) * mag_corr[2] - _m[dim];
+
+        /*
+        K = P * H' * (H * P * H' + R)^-1
+        P = P - K * H * P
+
+        e = R * (y - bm) - m
+        x = x + K * e
+        */
+        switch (conservative_posteriori_estimate(HP, HPHT_plus_R, obs_error, gate[dim])) {
+            case 0:
+                break;
+            case 1:
+                info |= (1 << dim);
+                break;
+            case 2:
+                info |= (8 << dim);    
+                reset_covariance_matrix(index, index + 1, _q_cov);
+                break;
+        }
+    }
+    
+    regular_covariance_to_symmetric<ESKF::dim>(0);
+
+    return info;                 
+}
+
+unsigned char LIEKF::fuse_declination(const float &dec, const Vector3f &w, const Vector3f &a, const float &noise_std, const float &gate) {
+    unsigned char info = 0;                                
+    if (!_control_status.flags.mag) {
+        return info;
+    }        
+
+    // cosψ, sinψ
+    const float cos_dec = cosf(dec);
+    const float sin_dec = sinf(dec);
+
+    // Sequential Kalman Filter
+    if (!isfinite(noise_std)) {
+        return info;
+    }
+
+    /*
+    K = P * H * (H * P * H' + R)^-1
+    x = x + K * (y - h)
+    P = (I - K * H) * P
+
+    where, H = [O, O, O, O, O, O, [sinψ, -cosψ, 0], O, O]
+           h = [mx, my]
+    */
+
+    // H * P  or  P * H'
+    array<float, ESKF::dim> HP = {_cov[0][16]*sin_dec - cos_dec*_cov[0][17],
+                                    _cov[1][16]*sin_dec - cos_dec*_cov[1][17],
+                                    _cov[2][16]*sin_dec - cos_dec*_cov[2][17],
+                                    _cov[3][16]*sin_dec - cos_dec*_cov[3][17],
+                                    _cov[4][16]*sin_dec - cos_dec*_cov[4][17],
+                                    _cov[5][16]*sin_dec - cos_dec*_cov[5][17],
+                                    _cov[6][16]*sin_dec - cos_dec*_cov[6][17],
+                                    _cov[7][16]*sin_dec - cos_dec*_cov[7][17],
+                                    _cov[8][16]*sin_dec - cos_dec*_cov[8][17],
+                                    _cov[9][16]*sin_dec - cos_dec*_cov[9][17],
+                                    _cov[10][16]*sin_dec - cos_dec*_cov[10][17],
+                                    _cov[11][16]*sin_dec - cos_dec*_cov[11][17],
+                                    _cov[12][16]*sin_dec - cos_dec*_cov[12][17],
+                                    _cov[13][16]*sin_dec - cos_dec*_cov[13][17],
+                                    _cov[14][16]*sin_dec - cos_dec*_cov[14][17],
+                                    _cov[15][16]*sin_dec - cos_dec*_cov[15][17],
+                                    _cov[16][16]*sin_dec - cos_dec*_cov[16][17],
+                                    _cov[16][17]*sin_dec - cos_dec*_cov[17][17],
+                                    _cov[16][18]*sin_dec - cos_dec*_cov[17][18],
+                                    0.f, 0.f, 0.f, 0.f, 0.f};
+
+    if (_control_status.flags.mag_bias) {
+        HP[19] = _cov[16][19]*sin_dec - cos_dec*_cov[17][19];
+        HP[20] = _cov[16][20]*sin_dec - cos_dec*_cov[17][20];
+        HP[21] = _cov[16][21]*sin_dec - cos_dec*_cov[17][21];
+                                                           
+    }
+
+    if (_control_status.flags.wind) {
+        HP[22] = _cov[16][22]*sin_dec - cos_dec*_cov[17][22];
+        HP[23] = _cov[16][23]*sin_dec - cos_dec*_cov[17][23];
+    }
+
+    // H * P * H' + R
+    const float HPHT_plus_R = HP[16] * sin_dec - HP[17] * cos_dec;
+
+    // h = [mx, my]
+    // e = [cosψ, sinψ] X [mx, my]
+    const float obs_error = cos_dec * _m[1] - sin_dec * _m[0];
+
+    /*
+    K = P * H' * (H * P * H' + R)^-1
+    P = P - K * H * P
+
+    e = [cosψ, sinψ] X [mx, my]
+    x = x + K * e
+    */
+    switch (conservative_posteriori_estimate(HP, HPHT_plus_R, obs_error, gate)) {
+        case 0:
+            break;
+        case 1:
+            info |= (1 << dim);
+            break;
+        case 2:
+            info |= (8 << dim);    
+            reset_covariance_matrix(16, 18, _q_cov);
+            break;
+    }
+    
+    regular_covariance_to_symmetric<ESKF::dim>(0);
+
+    return info;
+}
+
 void LIEKF::correct_state() {
     // for (float &es : _error_state) {
     //     cout << es << endl;
@@ -639,6 +828,8 @@ void LIEKF::correct_state() {
     bg = bg + δbg
     ba = ba + δba
     g = g + δg
+    m = m + δm
+    bm = bm + δbm
     */
     for (unsigned char i = 0; i < 3; ++i) {
         _p[i] += _rot(i, 0) * _error_state[0] + _rot(i, 1) * _error_state[1] + _rot(i, 2) * _error_state[2];
