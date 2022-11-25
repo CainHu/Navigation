@@ -59,19 +59,20 @@ int main() {
     float ts = 0.001f;
 
     Vector3f G(0.f, 0.f, g);
+    Vector3f M(0.9f, sqrtf(1.f - 0.9f * 0.9f), 0.f);
 
-    Vector3f p(0.f, 0.f, 0.f), v(0.f, 0.f, 0.f), bg(0.f, 0.f, 0.f), ba(0.f, 0.f, 0.f);
+    Vector3f p(0.f, 0.f, 0.f), v(0.f, 0.f, 0.f), bg(0.f, 0.f, 0.f), ba(0.f, 0.f, 0.f), bm(0.f, 0.f, 0.f);
     Quaternionf q(1.f, 0.f, 0.f, 0.f);
     Vector3f w(0.f, 0.f, 0.f), a(0.f, 0.f, -g);
 
-    static array<Vector3f, num_step> p_true, v_true, bg_true, ba_true;
+    static array<Vector3f, num_step> p_true, v_true, bg_true, ba_true, mb_true, bm_true;
     static array<Quaternionf, num_step> q_true;
     static array<Vector3f, num_step> w_true, a_true;
 
-    static array<Vector3f, num_step> pl_meas, vl_meas, pr_meas, vr_meas;
+    static array<Vector3f, num_step> pl_meas, vl_meas, pr_meas, vr_meas, mb_meas;
     static array<Vector3f, num_step> w_meas, a_meas;
 
-    static array<Vector3f, num_step> p_hat, v_hat, bg_hat, ba_hat;
+    static array<Vector3f, num_step> p_hat, v_hat, bg_hat, ba_hat, mb_hat, bm_hat;
     static array<Quaternionf, num_step> q_hat;
     static array<float, num_step> g_hat;
 
@@ -98,15 +99,20 @@ int main() {
         q.normalize();
 
         Vector3f nbg(eskf::noise_std_drift_gyro[0] * dist(random_engine),
-                    eskf::noise_std_drift_gyro[1] * dist(random_engine),
-                    eskf::noise_std_drift_gyro[2] * dist(random_engine));
+                     eskf::noise_std_drift_gyro[1] * dist(random_engine),
+                     eskf::noise_std_drift_gyro[2] * dist(random_engine));
 
         Vector3f nba(eskf::noise_std_drift_acc[0] * dist(random_engine),
-                    eskf::noise_std_drift_acc[1] * dist(random_engine),
-                    eskf::noise_std_drift_acc[2] * dist(random_engine));
+                     eskf::noise_std_drift_acc[1] * dist(random_engine),
+                     eskf::noise_std_drift_acc[2] * dist(random_engine));
+
+        Vector3f nbm(eskf::noise_std_drift_mag[0] * dist(random_engine),
+                     eskf::noise_std_drift_mag[1] * dist(random_engine),
+                     eskf::noise_std_drift_mag[2] * dist(random_engine));
 
         bg += nbg * dt;
         ba += nba * dt;
+        bm += nbm * dt;
 
         if ((i + 1) % (unsigned int)(ts / dt) == 0) {
             // Real State
@@ -114,6 +120,8 @@ int main() {
             v_true[j] = v;
             bg_true[j] = bg;
             ba_true[j] = ba;
+            mb_true[j] = q.toRotationMatrix().transpose() * M;
+            bm_true[j] = bm;
 
             q_true[j] = q;
 
@@ -133,11 +141,15 @@ int main() {
             Vector3f nvr(dist(random_engine) * eskf::noise_std_gps_vel[0],
                          dist(random_engine) * eskf::noise_std_gps_vel[1],
                          dist(random_engine) * eskf::noise_std_gps_vel[2]);
+            Vector3f nmb(dist(random_engine) * eskf::noise_std_mag[0],
+                         dist(random_engine) * eskf::noise_std_mag[1],
+                         dist(random_engine) * eskf::noise_std_mag[2]);
             Matrix3f R = q_true[j].toRotationMatrix();            
             pl_meas[j] = p_true[j] + R * dl + npl;
             vl_meas[j] = v_true[j] - R * (dl.cross(w_true[j])) + nvl;
             pr_meas[j] = p_true[j] + R * dr + npr;
             vr_meas[j] = v_true[j] - R * (dr.cross(w_true[j])) + nvr;
+            mb_meas[j] = mb_true[j] + nmb;
 
             Vector3f ng(dist(random_engine) * eskf::noise_std_gyro[0],
                         dist(random_engine) * eskf::noise_std_gyro[1],
@@ -156,17 +168,25 @@ int main() {
     }
 
     // leskf::LESKF eskf_rtk(ts);
-    geskf::GESKF eskf_rtk(ts);
-    // liekf::LIEKF eskf_rtk(ts);
+    // geskf::GESKF eskf_rtk(ts);
+    liekf::LIEKF eskf_rtk(ts);
     // riekf::RIEKF eskf_rtk(ts);
+    // eskf_rtk.set_magnet(M);
     eskf_rtk.set_gyroscope_standard_deviation(eskf::noise_std_gyro);
     eskf_rtk.set_accelerometer_standard_deviation(eskf::noise_std_acc);
     eskf_rtk.set_drift_gyroscope_standard_deviation(eskf::noise_std_drift_gyro);
     eskf_rtk.set_drift_saccelerometer_tandard_deviation(eskf::noise_std_drift_acc);
-    eskf_rtk.set_gravity_standard_deviation(eskf::noise_std_grav);
+    eskf_rtk.set_gravity_standard_deviation(eskf::noise_std_proc_grav);
+    eskf_rtk.set_magnet_standard_deviation(eskf::noise_std_proc_mag);
+    eskf_rtk.set_drift_magnetometer_standard_deviation(eskf::noise_std_drift_mag);
     eskf_rtk.set_processing_standard_deviation(eskf::noise_std_proc);
     eskf_rtk.enable_estimation_acc_bias();
     eskf_rtk.enable_estimation_gravity();
+    eskf_rtk.enable_estimation_magnet();
+    eskf_rtk.enable_estimation_magnet_bias();
+    // eskf_rtk.disable_estimation_magnet();
+    // eskf_rtk.disable_estimation_magnet_bias();
+    eskf_rtk.disable_estimation_wind();
     eskf_rtk.initialize();
 
     clock_t t1 = clock();
@@ -190,25 +210,34 @@ int main() {
         if (info != 0) {
             cout << "vr: " << int(info) << endl;
         }
+        info = eskf_rtk.fuse_magnet(mb_meas[i], w_meas[i], a_meas[i], eskf::noise_std_mag, eskf::gate_mag);
+        if (info != 0) {
+            cout << "m: " << int(info) << endl;
+        }
         // eskf_rtk.correct_covariance();
         eskf_rtk.correct_state();
 
+        q_hat[i] = eskf_rtk.get_quaternion();   
         p_hat[i] = eskf_rtk.get_position();
         v_hat[i] = eskf_rtk.get_velocity();
         bg_hat[i] = eskf_rtk.get_drift_gyro();
         ba_hat[i] = eskf_rtk.get_drift_acc();
         g_hat[i] = eskf_rtk.get_gravity();
-
-        q_hat[i] = eskf_rtk.get_quaternion();     
+        mb_hat[i] = q_hat[i].toRotationMatrix().transpose() * eskf_rtk.get_magnet(); 
+        bm_hat[i] = eskf_rtk.get_drift_magnet();
 
         // cout << g_hat[i] << endl;
 
         // cout << eskf_rtk.get_wind() << endl;
 
         // cout << p_true[i].transpose() << ", " << p_hat[i].transpose() << endl;
+
+        // cout << mb_true[i].transpose() << ", " << mb_hat[i].transpose() << endl;
+
+        cout << M.transpose() << ", " << eskf_rtk.get_magnet().transpose() << endl;
     }
-    clock_t t2 = clock();
-    cout << "time: " << t2 - t1 << endl;
+    // clock_t t2 = clock();
+    // cout << "time: " << t2 - t1 << endl;
 
     return 0;
 }
