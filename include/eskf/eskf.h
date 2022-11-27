@@ -62,7 +62,8 @@ namespace eskf {
         virtual unsigned char fuse_position(const Vector3f &pos, const Vector3f &w, const Vector3f &a, const Vector3f &dis, const Vector3f &noise_std, const Vector3f &gate) = 0;
         virtual unsigned char fuse_velocity(const Vector3f &vel, const Vector3f &w, const Vector3f &a, const Vector3f &dis, const Vector3f &noise_std, const Vector3f &gate) = 0;
         virtual unsigned char fuse_magnet(const Vector3f &mag, const Vector3f &w, const Vector3f &a, const Vector3f &noise_std, const Vector3f &gate) = 0;
-        virtual unsigned char fuse_declination(const float &dec, const Vector3f &w, const Vector3f &a, const float &noise_std, const float &gate) = 0;
+        virtual unsigned char fuse_declination(const float &dec, const Vector3f &mag, const Vector3f &w, const Vector3f &a, const float &noise_std, const float &gate) = 0;
+        virtual unsigned char fuse_magnet_1D(const float &dec, const Vector3f &mag, const Vector3f &w, const Vector3f &a, const float &noise_std, const float &gate) = 0;
 
         virtual void correct_state() = 0;
         virtual void correct_covariance() = 0;

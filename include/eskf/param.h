@@ -22,6 +22,8 @@ namespace eskf {
     Vector3f noise_std_mag {0.1f, 0.1f, 0.1f};
     Vector3f noise_std_proc_mag {0.01f, 0.01f, 0.01f};
     Vector3f noise_std_drift_mag {0.0001f, 0.0001f, 0.0001f};
+    float noise_std_mag_1d {0.1f};
+    float noise_std_dec {0.02f};
     float noise_std_baro {0.2f};
     float noise_std_proc_grav {0.005f};
     float noise_std_proc {0.00001f};
@@ -39,6 +41,8 @@ namespace eskf {
     Vector3f gate_vision_pos {1000.f, 1000.f, 1000.f};
     Vector3f gate_vision_vel {1000.f, 1000.f, 1000.f};
     Vector3f gate_mag {1000.f, 1000.f, 1000.f};
+    float gate_mag_1d {1000.f};
+    float gate_dec {1000.f};
     float gate_baro {100.f};
 
 }
