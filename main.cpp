@@ -211,18 +211,18 @@ int main() {
         if (info != 0) {
             cout << "vr: " << int(info) << endl;
         }
-        info = eskf_rtk.fuse_magnet(mb_meas[i], w_meas[i], a_meas[i], eskf::noise_std_mag, eskf::gate_mag);
+        // info = eskf_rtk.fuse_magnet(mb_meas[i], w_meas[i], a_meas[i], eskf::noise_std_mag, eskf::gate_mag);
+        // if (info != 0) {
+        //     cout << "m: " << int(info) << endl;
+        // }
+        info = eskf_rtk.fuse_declination(declination, mb_meas[i], w_meas[i], a_meas[i], eskf::noise_std_dec, eskf::gate_dec);
         if (info != 0) {
             cout << "m: " << int(info) << endl;
         }
-        // info = eskf_rtk.fuse_declination(declination, mb_meas[i], w_meas[i], a_meas[i], eskf::noise_std_dec, eskf::gate_dec);
-        // if (info != 0) {
-        //     cout << "m: " << int(info) << endl;
-        // }
-        // info = eskf_rtk.fuse_magnet_1D(declination, mb_meas[i], w_meas[i], a_meas[i], eskf::noise_std_mag_1d, eskf::gate_mag_1d);
-        // if (info != 0) {
-        //     cout << "m: " << int(info) << endl;
-        // }
+        info = eskf_rtk.fuse_magnet_1D(declination, mb_meas[i], w_meas[i], a_meas[i], eskf::noise_std_mag_1d, eskf::gate_mag_1d);
+        if (info != 0) {
+            cout << "m: " << int(info) << endl;
+        }
         // eskf_rtk.correct_covariance();
         eskf_rtk.correct_state();
 
@@ -243,7 +243,9 @@ int main() {
 
         // cout << mb_true[i].transpose() << ", " << mb_hat[i].transpose() << endl;
 
-        cout << M.transpose() << ", " << eskf_rtk.get_magnet().transpose() << endl;
+        // cout << M.transpose() << ", " << eskf_rtk.get_magnet().transpose() << endl;
+
+        cout << q_true[i].z() << ", " << q_hat[i].z() << endl;
     }
     // clock_t t2 = clock();
     // cout << "time: " << t2 - t1 << endl;
