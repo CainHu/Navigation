@@ -317,6 +317,15 @@ namespace eskf {
         // Utils
         void rotation_from_axis_angle(Matrix3f &r, const array<float, 3> &a) const;
         void quaternion_from_axis_angle(Quaternionf &q, const array<float, 3> &a) const;
+        void normalize_angle(float &angle) const {
+            while (angle > M_PI) { angle -= 2.f * M_PI; }
+            while (angle < -M_PI) { angle += 2.f * M_PI; }
+        }
+        float normalize_angle(float angle) const {
+            while (angle > M_PI) { angle -= 2.f * M_PI; }
+            while (angle < -M_PI) { angle += 2.f * M_PI; }
+            return angle;
+        }
 
         template <unsigned char N>
         void regular_covariance_to_symmetric(unsigned char start_index) {

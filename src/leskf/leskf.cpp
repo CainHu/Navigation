@@ -730,8 +730,10 @@ unsigned char LESKF::fuse_declination(const float &dec, const Vector3f &mag, con
     }        
 
     // cosψ, sinψ
-    const float cos_dec = cosf(dec);
-    const float sin_dec = sinf(dec);
+    const float psi = atan2f(_m[1], _m[0]);
+    const float r2 = _m[0] * _m[0] + _m[1] * _m[1];
+    // TODO: 需要处理r2接近0的情况
+    const float px = -_m[1] / r2, py = _m[0] / r2;
 
     // Sequential Kalman Filter
     if (!isfinite(noise_std)) {
@@ -748,45 +750,45 @@ unsigned char LESKF::fuse_declination(const float &dec, const Vector3f &mag, con
     */
 
     // H * P  or  P * H'
-    array<float, ESKF::dim> HP = {_cov[0][16]*sin_dec - cos_dec*_cov[0][17],
-                                    _cov[1][16]*sin_dec - cos_dec*_cov[1][17],
-                                    _cov[2][16]*sin_dec - cos_dec*_cov[2][17],
-                                    _cov[3][16]*sin_dec - cos_dec*_cov[3][17],
-                                    _cov[4][16]*sin_dec - cos_dec*_cov[4][17],
-                                    _cov[5][16]*sin_dec - cos_dec*_cov[5][17],
-                                    _cov[6][16]*sin_dec - cos_dec*_cov[6][17],
-                                    _cov[7][16]*sin_dec - cos_dec*_cov[7][17],
-                                    _cov[8][16]*sin_dec - cos_dec*_cov[8][17],
-                                    _cov[9][16]*sin_dec - cos_dec*_cov[9][17],
-                                    _cov[10][16]*sin_dec - cos_dec*_cov[10][17],
-                                    _cov[11][16]*sin_dec - cos_dec*_cov[11][17],
-                                    _cov[12][16]*sin_dec - cos_dec*_cov[12][17],
-                                    _cov[13][16]*sin_dec - cos_dec*_cov[13][17],
-                                    _cov[14][16]*sin_dec - cos_dec*_cov[14][17],
-                                    _cov[15][16]*sin_dec - cos_dec*_cov[15][17],
-                                    _cov[16][16]*sin_dec - cos_dec*_cov[16][17],
-                                    _cov[16][17]*sin_dec - cos_dec*_cov[17][17],
-                                    _cov[16][18]*sin_dec - cos_dec*_cov[17][18],
+    array<float, ESKF::dim> HP = {_cov[0][16]*px + py *_cov[0][17],
+                                    _cov[1][16]*px + py*_cov[1][17],
+                                    _cov[2][16]*px + py*_cov[2][17],
+                                    _cov[3][16]*px + py*_cov[3][17],
+                                    _cov[4][16]*px + py*_cov[4][17],
+                                    _cov[5][16]*px + py*_cov[5][17],
+                                    _cov[6][16]*px + py*_cov[6][17],
+                                    _cov[7][16]*px + py*_cov[7][17],
+                                    _cov[8][16]*px + py*_cov[8][17],
+                                    _cov[9][16]*px + py*_cov[9][17],
+                                    _cov[10][16]*px + py*_cov[10][17],
+                                    _cov[11][16]*px + py*_cov[11][17],
+                                    _cov[12][16]*px + py*_cov[12][17],
+                                    _cov[13][16]*px + py*_cov[13][17],
+                                    _cov[14][16]*px + py*_cov[14][17],
+                                    _cov[15][16]*px + py*_cov[15][17],
+                                    _cov[16][16]*px + py*_cov[16][17],
+                                    _cov[16][17]*px + py*_cov[17][17],
+                                    _cov[16][18]*px + py*_cov[17][18],
                                     0.f, 0.f, 0.f, 0.f, 0.f};
 
     if (_control_status.flags.mag_bias) {
-        HP[19] = _cov[16][19]*sin_dec - cos_dec*_cov[17][19];
-        HP[20] = _cov[16][20]*sin_dec - cos_dec*_cov[17][20];
-        HP[21] = _cov[16][21]*sin_dec - cos_dec*_cov[17][21];
+        HP[19] = _cov[16][19]*px + py*_cov[17][19];
+        HP[20] = _cov[16][20]*px + py*_cov[17][20];
+        HP[21] = _cov[16][21]*px + py*_cov[17][21];
                                                            
     }
 
     if (_control_status.flags.wind) {
-        HP[22] = _cov[16][22]*sin_dec - cos_dec*_cov[17][22];
-        HP[23] = _cov[16][23]*sin_dec - cos_dec*_cov[17][23];
+        HP[22] = _cov[16][22]*px + py*_cov[17][22];
+        HP[23] = _cov[16][23]*px + py*_cov[17][23];
     }
 
     // H * P * H' + R
-    const float HPHT_plus_R = HP[16] * sin_dec - HP[17] * cos_dec;
+    const float HPHT_plus_R = HP[16] * px + py * HP[17];
 
     // h = [mx, my]
     // e = [cosψ, sinψ] X [mx, my]
-    const float obs_error = cos_dec * _m[1] - sin_dec * _m[0];
+    const float obs_error = normalize_angle(dec - psi);
 
     /*
     K = P * H' * (H * P * H' + R)^-1
@@ -814,11 +816,11 @@ unsigned char LESKF::fuse_declination(const float &dec, const Vector3f &mag, con
 
 unsigned char LESKF::fuse_magnet_1D(const float &dec, const Vector3f &mag, const Vector3f &w, const Vector3f &a, const float &noise_std, const float &gate) {
     /*
-    ( [cosψ, sinψ, 0]' X R*δR*(mag - bm - δbm) )_z = 0
+    ( [cosψ, sinψ, 0]' X δR*R*(mag - bm - δbm) )_z = 0
 
-    Let, R * (mag - bm) = m = [m_x, m_y, m_z]', R * (mag - bm)^ = rot_m_hat = S
-    Then, [cosψ, sinψ] X [m_x, m_y] = [cosψ, sinψ] X [R00*δbm_x + R01*δbm_y + R02*δbm_z + S00*δθ_x + S01*δθ_y + S02*δθ_z, R10*δbm_x + R11*δbm_y + R12*δbm_z + S10*δθ_x + S11*δθ_y + S12*δθ_z]
-    => H = [0, 0, 0, 0, 0, 0, S10*cosψ - S00*sinψ, S11*cosψ - S01*sinψ, S12*cosψ - S02*sinψ, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, R10*cosψ - R00*sinψ, R11*cosψ - R01*sinψ, R12*cosψ - R02*sinψ, 0, 0]
+    Let, R * (mag - bm) = m = [m_x, m_y, m_z]'
+    Then, [cosψ, sinψ] X [m_x, m_y] = [cosψ, sinψ] X [R00*δbm_x + R01*δbm_y + R02*δbm_z + m_y*δθ_z - m_z*δθ_y, R10*δbm_x + R11*δbm_y + R12*δbm_z + m_z*δθ_x - m_x*δθ_z]
+    => H = [0, 0, 0, 0, 0, 0, m_z*cosψ, m_z*sinψ, -(m_x*cosψ + m_y*sinψ), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, R10*cosψ - R00*sinψ, R11*cosψ - R01*sinψ, R12*cosψ - R02*sinψ, 0, 0]
     */
 
     unsigned char info = 0;     
@@ -826,21 +828,23 @@ unsigned char LESKF::fuse_magnet_1D(const float &dec, const Vector3f &mag, const
     // m = R * (mag - bm)
     const Vector3f m = _rot * (mag - _bm);
 
-    // rot_m_hat * (mag - bm)^
-    const array<array<float, 3>, 3> rot_m_hat {
-        {{_rot(0, 1) * m[2] - _rot(0, 2) * m[1], _rot(0, 2) * m[0] - _rot(0, 0) * m[2], _rot(0, 0) * m[1] - _rot(0, 1) * m[0]},
-         {_rot(1, 1) * m[2] - _rot(1, 2) * m[1], _rot(1, 2) * m[0] - _rot(1, 0) * m[2], _rot(1, 0) * m[1] - _rot(1, 1) * m[0]},
-         {_rot(2, 1) * m[2] - _rot(2, 2) * m[1], _rot(2, 2) * m[0] - _rot(2, 0) * m[2], _rot(2, 0) * m[1] - _rot(2, 1) * m[0]}}
-    };
+    // ψ
+    const float psi = atan2f(m[1], m[0]);
 
-    // cosψ, sinψ
-    const float cos_dec = cosf(dec);
-    const float sin_dec = sinf(dec);
+    // mx^2, my^2, mx*my
+    const float x2 = m[0] * m[0], y2 = m[1] * m[1], xy = m[0] * m[1];;
 
-    // H = [0, 0, 0, 0, 0, 0, S10*cosψ - S00*sinψ, S11*cosψ - S01*sinψ, S12*cosψ - S02*sinψ, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, R10*cosψ - R00*sinψ, R11*cosψ - R01*sinψ, R12*cosψ - R02*sinψ, 0, 0]
+    // r^2 = mx^2 + my^2
+    const float r2 = x2 + y2;
+
+    // H = [0, 0, 0, 0, 0, 0, m_z*cosψ, m_z*sinψ, -(m_x*cosψ + m_y*sinψ), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, R10*cosψ - R00*sinψ, R11*cosψ - R01*sinψ, R12*cosψ - R02*sinψ, 0, 0]
     const array<float, 6> H {
-        rot_m_hat[1][0] * cos_dec - rot_m_hat[0][0] * sin_dec, rot_m_hat[1][1] * cos_dec - rot_m_hat[0][1] * sin_dec, rot_m_hat[1][2] * cos_dec - rot_m_hat[0][2] * sin_dec,
-        _rot(1, 0) * cos_dec - _rot(0, 0) * sin_dec, _rot(1, 1) * cos_dec - _rot(0, 1) * sin_dec, _rot(1, 2) * cos_dec - _rot(0, 2) * sin_dec
+        ((_rot(0, 2) * m[0] - _rot(1, 2) * m[1]) * m[1] + (_rot(1, 1) * m[1] - _rot(0, 1) * m[0]) * m[2]) / r2,
+        ((_rot(1, 2) * m[1] - _rot(0, 2) * m[0]) * m[0] + (_rot(0, 0) * m[0] - _rot(1, 0) * m[1]) * m[2]) / r2,
+        (_rot(0, 1) * x2 + _rot(1, 0) * y2 - (_rot(0, 0) + _rot(1, 1)) * xy) / r2, 
+        (m[1] * _rot(0, 0) - m[0] * _rot(1, 0)) / r2, 
+        (m[1] * _rot(0, 1) - m[0] * _rot(1, 1)) / r2, 
+        (m[1] * _rot(0, 2) - m[0] * _rot(1, 2)) / r2
     };
 
     // H * P  or  P * H'
@@ -879,11 +883,11 @@ unsigned char LESKF::fuse_magnet_1D(const float &dec, const Vector3f &mag, const
     }
 
     // H * P * H' + R
-    const float HPHT_plus_R = HP[6] * H[0] + HP[7] * H[1] + HP[8] * H[2] + HP[19] * H[3] + HP[20] * H[4] + HP[21] * H[5];
+    const float HPHT_plus_R = HP[6] * H[0] + HP[7] * H[1] + HP[8] * H[2] + HP[19] * H[3] + HP[20] * H[4] + HP[21] * H[5] + noise_std * noise_std;
 
     // h = [m_x, m_y]
     // e = [cosψ, sinψ] X [m_x, m_y]
-    const float obs_error = cos_dec * m[1] - sin_dec * m[0];
+    const float obs_error = normalize_angle(dec - psi);
 
     /*
     K = P * H' * (H * P * H' + R)^-1
