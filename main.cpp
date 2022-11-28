@@ -60,6 +60,7 @@ int main() {
 
     Vector3f G(0.f, 0.f, g);
     Vector3f M(0.9f, sqrtf(1.f - 0.9f * 0.9f), 0.f);
+    float declination = atan2f(M[1], M[0]);
 
     Vector3f p(0.f, 0.f, 0.f), v(0.f, 0.f, 0.f), bg(0.f, 0.f, 0.f), ba(0.f, 0.f, 0.f), bm(0.f, 0.f, 0.f);
     Quaternionf q(1.f, 0.f, 0.f, 0.f);
@@ -168,8 +169,8 @@ int main() {
     }
 
     // leskf::LESKF eskf_rtk(ts);
-    // geskf::GESKF eskf_rtk(ts);
-    liekf::LIEKF eskf_rtk(ts);
+    geskf::GESKF eskf_rtk(ts);
+    // liekf::LIEKF eskf_rtk(ts);
     // riekf::RIEKF eskf_rtk(ts);
     // eskf_rtk.set_magnet(M);
     eskf_rtk.set_gyroscope_standard_deviation(eskf::noise_std_gyro);
@@ -214,6 +215,14 @@ int main() {
         if (info != 0) {
             cout << "m: " << int(info) << endl;
         }
+        // info = eskf_rtk.fuse_declination(declination, mb_meas[i], w_meas[i], a_meas[i], eskf::noise_std_dec, eskf::gate_dec);
+        // if (info != 0) {
+        //     cout << "m: " << int(info) << endl;
+        // }
+        // info = eskf_rtk.fuse_magnet_1D(declination, mb_meas[i], w_meas[i], a_meas[i], eskf::noise_std_mag_1d, eskf::gate_mag_1d);
+        // if (info != 0) {
+        //     cout << "m: " << int(info) << endl;
+        // }
         // eskf_rtk.correct_covariance();
         eskf_rtk.correct_state();
 

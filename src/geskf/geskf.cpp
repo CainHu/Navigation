@@ -855,94 +855,94 @@ unsigned char GESKF::fuse_magnet(const Vector3f &mag, const Vector3f &w, const V
     return info;                 
 }
 
-// unsigned char GESKF::fuse_declination(const float &dec, const Vector3f &w, const Vector3f &a, const float &noise_std, const float &gate) {
-//     unsigned char info = 0;                                
-//     if (!_control_status.flags.mag) {
-//         return info;
-//     }        
+unsigned char GESKF::fuse_declination(const float &dec, const Vector3f &mag, const Vector3f &w, const Vector3f &a, const float &noise_std, const float &gate) {
+    unsigned char info = 0;                                
+    if (!_control_status.flags.mag) {
+        return info;
+    }        
 
-//     // cosψ, sinψ
-//     const float cos_dec = cosf(dec);
-//     const float sin_dec = sinf(dec);
+    // cosψ, sinψ
+    const float cos_dec = cosf(dec);
+    const float sin_dec = sinf(dec);
 
-//     // Sequential Kalman Filter
-//     if (!isfinite(noise_std)) {
-//         return info;
-//     }
+    // Sequential Kalman Filter
+    if (!isfinite(noise_std)) {
+        return info;
+    }
 
-//     /*
-//     K = P * H * (H * P * H' + R)^-1
-//     x = x + K * (y - h)
-//     P = (I - K * H) * P
+    /*
+    K = P * H * (H * P * H' + R)^-1
+    x = x + K * (y - h)
+    P = (I - K * H) * P
 
-//     where, H = [O, O, O, O, O, O, [sinψ, -cosψ, 0], O, O]
-//            h = [mx, my]
-//     */
+    where, H = [O, O, O, O, O, O, [sinψ, -cosψ, 0], O, O]
+           h = [mx, my]
+    */
 
-//     // H * P  or  P * H'
-//     array<float, ESKF::dim> HP = {_cov[0][16]*sin_dec - cos_dec*_cov[0][17],
-//                                     _cov[1][16]*sin_dec - cos_dec*_cov[1][17],
-//                                     _cov[2][16]*sin_dec - cos_dec*_cov[2][17],
-//                                     _cov[3][16]*sin_dec - cos_dec*_cov[3][17],
-//                                     _cov[4][16]*sin_dec - cos_dec*_cov[4][17],
-//                                     _cov[5][16]*sin_dec - cos_dec*_cov[5][17],
-//                                     _cov[6][16]*sin_dec - cos_dec*_cov[6][17],
-//                                     _cov[7][16]*sin_dec - cos_dec*_cov[7][17],
-//                                     _cov[8][16]*sin_dec - cos_dec*_cov[8][17],
-//                                     _cov[9][16]*sin_dec - cos_dec*_cov[9][17],
-//                                     _cov[10][16]*sin_dec - cos_dec*_cov[10][17],
-//                                     _cov[11][16]*sin_dec - cos_dec*_cov[11][17],
-//                                     _cov[12][16]*sin_dec - cos_dec*_cov[12][17],
-//                                     _cov[13][16]*sin_dec - cos_dec*_cov[13][17],
-//                                     _cov[14][16]*sin_dec - cos_dec*_cov[14][17],
-//                                     _cov[15][16]*sin_dec - cos_dec*_cov[15][17],
-//                                     _cov[16][16]*sin_dec - cos_dec*_cov[16][17],
-//                                     _cov[16][17]*sin_dec - cos_dec*_cov[17][17],
-//                                     _cov[16][18]*sin_dec - cos_dec*_cov[17][18],
-//                                     0.f, 0.f, 0.f, 0.f, 0.f};
+    // H * P  or  P * H'
+    array<float, ESKF::dim> HP = {_cov[0][16]*sin_dec - cos_dec*_cov[0][17],
+                                    _cov[1][16]*sin_dec - cos_dec*_cov[1][17],
+                                    _cov[2][16]*sin_dec - cos_dec*_cov[2][17],
+                                    _cov[3][16]*sin_dec - cos_dec*_cov[3][17],
+                                    _cov[4][16]*sin_dec - cos_dec*_cov[4][17],
+                                    _cov[5][16]*sin_dec - cos_dec*_cov[5][17],
+                                    _cov[6][16]*sin_dec - cos_dec*_cov[6][17],
+                                    _cov[7][16]*sin_dec - cos_dec*_cov[7][17],
+                                    _cov[8][16]*sin_dec - cos_dec*_cov[8][17],
+                                    _cov[9][16]*sin_dec - cos_dec*_cov[9][17],
+                                    _cov[10][16]*sin_dec - cos_dec*_cov[10][17],
+                                    _cov[11][16]*sin_dec - cos_dec*_cov[11][17],
+                                    _cov[12][16]*sin_dec - cos_dec*_cov[12][17],
+                                    _cov[13][16]*sin_dec - cos_dec*_cov[13][17],
+                                    _cov[14][16]*sin_dec - cos_dec*_cov[14][17],
+                                    _cov[15][16]*sin_dec - cos_dec*_cov[15][17],
+                                    _cov[16][16]*sin_dec - cos_dec*_cov[16][17],
+                                    _cov[16][17]*sin_dec - cos_dec*_cov[17][17],
+                                    _cov[16][18]*sin_dec - cos_dec*_cov[17][18],
+                                    0.f, 0.f, 0.f, 0.f, 0.f};
 
-//     if (_control_status.flags.mag_bias) {
-//         HP[19] = _cov[16][19]*sin_dec - cos_dec*_cov[17][19];
-//         HP[20] = _cov[16][20]*sin_dec - cos_dec*_cov[17][20];
-//         HP[21] = _cov[16][21]*sin_dec - cos_dec*_cov[17][21];
+    if (_control_status.flags.mag_bias) {
+        HP[19] = _cov[16][19]*sin_dec - cos_dec*_cov[17][19];
+        HP[20] = _cov[16][20]*sin_dec - cos_dec*_cov[17][20];
+        HP[21] = _cov[16][21]*sin_dec - cos_dec*_cov[17][21];
                                                            
-//     }
+    }
 
-//     if (_control_status.flags.wind) {
-//         HP[22] = _cov[16][22]*sin_dec - cos_dec*_cov[17][22];
-//         HP[23] = _cov[16][23]*sin_dec - cos_dec*_cov[17][23];
-//     }
+    if (_control_status.flags.wind) {
+        HP[22] = _cov[16][22]*sin_dec - cos_dec*_cov[17][22];
+        HP[23] = _cov[16][23]*sin_dec - cos_dec*_cov[17][23];
+    }
 
-//     // H * P * H' + R
-//     const float HPHT_plus_R = HP[16] * sin_dec - HP[17] * cos_dec;
+    // H * P * H' + R
+    const float HPHT_plus_R = HP[16] * sin_dec - HP[17] * cos_dec;
 
-//     // h = [mx, my]
-//     // e = [cosψ, sinψ] X [mx, my]
-//     const float obs_error = cos_dec * _m[1] - sin_dec * _m[0];
+    // h = [mx, my]
+    // e = [cosψ, sinψ] X [mx, my]
+    const float obs_error = cos_dec * _m[1] - sin_dec * _m[0];
 
-//     /*
-//     K = P * H' * (H * P * H' + R)^-1
-//     P = P - K * H * P
+    /*
+    K = P * H' * (H * P * H' + R)^-1
+    P = P - K * H * P
 
-//     e = [cosψ, sinψ] X [mx, my]
-//     x = x + K * e
-//     */
-//     switch (conservative_posteriori_estimate(HP, HPHT_plus_R, obs_error, gate)) {
-//         case 0:
-//             break;
-//         case 1:
-//             info |= (1 << dim);
-//             break;
-//         case 2:
-//             info |= (8 << dim);    
-//             reset_covariance_matrix(16, 18, _q_cov);
-//             break;
-//     }
+    e = [cosψ, sinψ] X [mx, my]
+    x = x + K * e
+    */
+    switch (conservative_posteriori_estimate(HP, HPHT_plus_R, obs_error, gate)) {
+        case 0:
+            break;
+        case 1:
+            info |= (1 << dim);
+            break;
+        case 2:
+            info |= (8 << dim);    
+            reset_covariance_matrix(16, 18, _q_cov);
+            break;
+    }
     
-//     regular_covariance_to_symmetric<ESKF::dim>(0);
+    regular_covariance_to_symmetric<ESKF::dim>(0);
 
-//     return info;
-// }
+    return info;
+}
 
 // unsigned char GESKF::fuse_declination(const float &dec, const Vector3f &w, const Vector3f &a, const float &noise_std, const float &gate) {
 //     unsigned char info = 0;                                
@@ -1039,102 +1039,202 @@ unsigned char GESKF::fuse_magnet(const Vector3f &mag, const Vector3f &w, const V
 //     return info;
 // }
 
-unsigned char GESKF::fuse_declination(const float &dec, const Vector3f &mag, const Vector3f &w, const Vector3f &a, const float &noise_std, const float &gate) {
-    unsigned char info = 0;                                
-    if (!_control_status.flags.mag) {
-        return info;
-    }        
+// unsigned char GESKF::fuse_declination(const float &dec, const Vector3f &mag, const Vector3f &w, const Vector3f &a, const float &noise_std, const float &gate) {
+//     unsigned char info = 0;                                
+//     if (!_control_status.flags.mag) {
+//         return info;
+//     }        
 
-    // cosψ, sinψ
-    const array<float, 2> cos_sin {cosf(dec), sinf(dec)};
+//     // cosψ, sinψ
+//     const array<float, 2> cos_sin {cosf(dec), sinf(dec)};
 
-    // r = sqrt(m_x^2 + m_y^2)
-    // const float m_norm = sqrtf(_m_init[0] * _m_init[0] + _m_init[1] * _m_init[1] + _m_init[2] * _m_init[2] - _m[2] * _m[2]);
-    // const float m_norm = sqrtf(_m[0] * _m[0] + _m[1] * _m[1]);
-    const float m_norm = sqrtf((mag - _bm).squaredNorm() - _m[2] * _m[2]);
+//     // r = sqrt(m_x^2 + m_y^2)
+//     // const float m_norm = sqrtf(_m_init[0] * _m_init[0] + _m_init[1] * _m_init[1] + _m_init[2] * _m_init[2] - _m[2] * _m[2]);
+//     // const float m_norm = sqrtf(_m[0] * _m[0] + _m[1] * _m[1]);
+//     const float m_norm = sqrtf((mag - _bm).squaredNorm() - _m[2] * _m[2]);
 
-    // Sequential Kalman Filter
-    if (!isfinite(noise_std)) {
-        return info;
-    }
+//     // Sequential Kalman Filter
+//     if (!isfinite(noise_std)) {
+//         return info;
+//     }
 
-   // Sequential Kalman Filter
-    for (unsigned int dim = 0; dim < 2; ++dim) {
-        /*
-        K = P * H * (H * P * H' + R)^-1
-        x = x + K * (y - h)
-        P = (I - K * H) * P
+//    // Sequential Kalman Filter
+//     for (unsigned int dim = 0; dim < 2; ++dim) {
+//         /*
+//         K = P * H * (H * P * H' + R)^-1
+//         x = x + K * (y - h)
+//         P = (I - K * H) * P
 
-        where, H = [O, O, O, O, O, O, [1, 0, 0], O, O
-                    O, O, O, O, O, O, [0, 1, 0], O, O]
-               h = [mx, my]'
-        */
+//         where, H = [O, O, O, O, O, O, [1, 0, 0], O, O
+//                     O, O, O, O, O, O, [0, 1, 0], O, O]
+//                h = [mx, my]'
+//         */
 
-        // H * P  or  P * H'
-        const unsigned int index = 16 + dim;
-        array<float, ESKF::dim> HP = {_cov[0][index],
-                                        _cov[1][index],
-                                        _cov[2][index],
-                                        _cov[3][index],
-                                        _cov[4][index],
-                                        _cov[5][index],
-                                        _cov[6][index],
-                                        _cov[7][index],
-                                        _cov[8][index],
-                                        _cov[9][index],
-                                        _cov[10][index],
-                                        _cov[11][index],
-                                        _cov[12][index],
-                                        _cov[13][index],
-                                        _cov[14][index],
-                                        _cov[15][index],
-                                        _cov[16][index],
-                                        _cov[index][17],
-                                        _cov[index][18],
-                                        0.f, 0.f, 0.f, 0.f, 0.f};
+//         // H * P  or  P * H'
+//         const unsigned int index = 16 + dim;
+//         array<float, ESKF::dim> HP = {_cov[0][index],
+//                                         _cov[1][index],
+//                                         _cov[2][index],
+//                                         _cov[3][index],
+//                                         _cov[4][index],
+//                                         _cov[5][index],
+//                                         _cov[6][index],
+//                                         _cov[7][index],
+//                                         _cov[8][index],
+//                                         _cov[9][index],
+//                                         _cov[10][index],
+//                                         _cov[11][index],
+//                                         _cov[12][index],
+//                                         _cov[13][index],
+//                                         _cov[14][index],
+//                                         _cov[15][index],
+//                                         _cov[16][index],
+//                                         _cov[index][17],
+//                                         _cov[index][18],
+//                                         0.f, 0.f, 0.f, 0.f, 0.f};
 
-        if (_control_status.flags.mag_bias) {
-            HP[19] = _cov[index][19];
-            HP[20] = _cov[index][20];
-            HP[21] = _cov[index][21];                           
-        }
+//         if (_control_status.flags.mag_bias) {
+//             HP[19] = _cov[index][19];
+//             HP[20] = _cov[index][20];
+//             HP[21] = _cov[index][21];                           
+//         }
 
-        if (_control_status.flags.wind) {
-            HP[22] = _cov[index][22];
-            HP[23] = _cov[index][23];
-        }
+//         if (_control_status.flags.wind) {
+//             HP[22] = _cov[index][22];
+//             HP[23] = _cov[index][23];
+//         }
 
-        // H * P * H' + R
-        const float HPHT_plus_R = HP[index] + noise_std * noise_std;
+//         // H * P * H' + R
+//         const float HPHT_plus_R = HP[index] + noise_std * noise_std;
 
-        // h = [mx, my]'
-        // e = r * [cosψ, sinψ]' - [mx, my]'
-        const float obs_error = m_norm * cos_sin[dim] - _m[dim];
+//         // h = [mx, my]'
+//         // e = r * [cosψ, sinψ]' - [mx, my]'
+//         const float obs_error = m_norm * cos_sin[dim] - _m[dim];
 
-        /*
-        K = P * H' * (H * P * H' + R)^-1
-        P = P - K * H * P
+//         /*
+//         K = P * H' * (H * P * H' + R)^-1
+//         P = P - K * H * P
 
-        e = r * [cosψ, sinψ]' - [mx, my]'
-        x = x + K * e
-        */
-        switch (conservative_posteriori_estimate(HP, HPHT_plus_R, obs_error, gate)) {
-            case 0:
-                break;
-            case 1:
-                info |= (1 << dim);
-                break;
-            case 2:
-                info |= (8 << dim);    
-                reset_covariance_matrix(index, index + 1, _q_cov);
-                break;
-        }
-    }
+//         e = r * [cosψ, sinψ]' - [mx, my]'
+//         x = x + K * e
+//         */
+//         switch (conservative_posteriori_estimate(HP, HPHT_plus_R, obs_error, gate)) {
+//             case 0:
+//                 break;
+//             case 1:
+//                 info |= (1 << dim);
+//                 break;
+//             case 2:
+//                 info |= (8 << dim);    
+//                 reset_covariance_matrix(index, index + 1, _q_cov);
+//                 break;
+//         }
+//     }
     
-    regular_covariance_to_symmetric<ESKF::dim>(0);
+//     regular_covariance_to_symmetric<ESKF::dim>(0);
 
-    return info;
-}
+//     return info;
+// }
+
+// unsigned char GESKF::fuse_declination(const float &dec, const Vector3f &mag, const Vector3f &w, const Vector3f &a, const float &noise_std, const float &gate) {
+//     unsigned char info = 0;                                
+//     if (!_control_status.flags.mag) {
+//         return info;
+//     }        
+
+//     // cosψ, sinψ
+//     const array<float, 2> cos_sin {cosf(dec), sinf(dec)};
+    
+//     // r = sqrt(m_x^2 + m_y^2)
+//     const float r = sqrtf(_m[0] * _m[0] + _m[1] * _m[1]);
+
+//     const array<array<float, 2>, 2> params {
+//         {{1.f - _m[0] / r * cos_sin[0], -_m[1] / r * cos_sin[0]},
+//          {-_m[0] / r * cos_sin[1], 1.f - _m[1] / r * cos_sin[1]}}
+//     };
+
+//     // Sequential Kalman Filter
+//     if (!isfinite(noise_std)) {
+//         return info;
+//     }
+
+//    // Sequential Kalman Filter
+//     for (unsigned int dim = 0; dim < 2; ++dim) {
+//         /*
+//         K = P * H * (H * P * H' + R)^-1
+//         x = x + K * (y - h)
+//         P = (I - K * H) * P
+
+//         where, H = [O, O, O, O, O, O, [1, 0, 0], O, O
+//                     O, O, O, O, O, O, [0, 1, 0], O, O]
+//                h = [mx, my]'
+//         */
+
+//         // H * P  or  P * H'
+//         const unsigned int index = 16 + dim;
+//         array<float, ESKF::dim> HP = {_cov[0][16] * params[dim][0] + _cov[0][17] * params[dim][1],
+//                                         _cov[1][16] * params[dim][0] + _cov[1][17] * params[dim][1],
+//                                         _cov[2][16] * params[dim][0] + _cov[2][17] * params[dim][1],
+//                                         _cov[3][16] * params[dim][0] + _cov[3][17] * params[dim][1],
+//                                         _cov[4][16] * params[dim][0] + _cov[4][17] * params[dim][1],
+//                                         _cov[5][16] * params[dim][0] + _cov[5][17] * params[dim][1],
+//                                         _cov[6][16] * params[dim][0] + _cov[6][17] * params[dim][1],
+//                                         _cov[7][16] * params[dim][0] + _cov[7][17] * params[dim][1],
+//                                         _cov[8][16] * params[dim][0] + _cov[8][17] * params[dim][1],
+//                                         _cov[9][16] * params[dim][0] + _cov[9][17] * params[dim][1],
+//                                         _cov[10][16] * params[dim][0] + _cov[10][17] * params[dim][1],
+//                                         _cov[11][16] * params[dim][0] + _cov[11][17] * params[dim][1],
+//                                         _cov[12][16] * params[dim][0] + _cov[12][17] * params[dim][1],
+//                                         _cov[13][16] * params[dim][0] + _cov[13][17] * params[dim][1],
+//                                         _cov[14][16] * params[dim][0] + _cov[14][17] * params[dim][1],
+//                                         _cov[15][16] * params[dim][0] + _cov[15][17] * params[dim][1],
+//                                         _cov[16][16] * params[dim][0] + _cov[16][17] * params[dim][1],
+//                                         _cov[16][17] * params[dim][0] + _cov[17][17] * params[dim][1],
+//                                         _cov[16][18] * params[dim][0] + _cov[17][18] * params[dim][1],
+//                                         0.f, 0.f, 0.f, 0.f, 0.f};
+
+//         if (_control_status.flags.mag_bias) {
+//             HP[19] = _cov[16][19] * params[dim][0] + _cov[17][19] * params[dim][1];
+//             HP[20] = _cov[16][20] * params[dim][0] + _cov[17][20] * params[dim][1];
+//             HP[21] = _cov[16][21] * params[dim][0] + _cov[17][21] * params[dim][1];                           
+//         }
+
+//         if (_control_status.flags.wind) {
+//             HP[22] = _cov[16][22] * params[dim][0] + _cov[17][22] * params[dim][1];
+//             HP[23] = _cov[16][23] * params[dim][0] + _cov[17][23] * params[dim][1];
+//         }
+
+//         // H * P * H' + R
+//         const float HPHT_plus_R = HP[16] * params[dim][0] + HP[17] * params[dim][1] + noise_std * noise_std;
+
+//         // h = [mx, my]'
+//         // e = r * [cosψ, sinψ]' - [mx, my]'
+//         const float obs_error = r * cos_sin[dim] - _m[dim];
+
+//         /*
+//         K = P * H' * (H * P * H' + R)^-1
+//         P = P - K * H * P
+
+//         e = r * [cosψ, sinψ]' - [mx, my]'
+//         x = x + K * e
+//         */
+//         switch (conservative_posteriori_estimate(HP, HPHT_plus_R, obs_error, gate)) {
+//             case 0:
+//                 break;
+//             case 1:
+//                 info |= (1 << dim);
+//                 break;
+//             case 2:
+//                 info |= (8 << dim);    
+//                 reset_covariance_matrix(index, index + 1, _q_cov);
+//                 break;
+//         }
+//     }
+    
+//     regular_covariance_to_symmetric<ESKF::dim>(0);
+
+//     return info;
+// }
 
 unsigned char GESKF::fuse_magnet_1D(const float &dec, const Vector3f &mag, const Vector3f &w, const Vector3f &a, const float &noise_std, const float &gate) {
     /*
