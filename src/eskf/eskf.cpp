@@ -118,7 +118,8 @@ void ESKF::predict_state(const Vector3f &w, const Vector3f &a) {
     // bg' = bg
     // ba' = ba
     // g = g
-    // m' = m
+    // h' = h
+    // dec' = dec
     // bm' = bm
     // w' = w
 
@@ -186,52 +187,70 @@ unsigned char ESKF::conservative_posteriori_estimate(const array<float, ESKF::di
 
     if (_control_status.flags.mag) {
         // Don't correct error state unless (I - KH) * P >= 0 <=> P - PH'(HPH'+R)^-1HP >= 0
-        for (unsigned char i = 16; i < 19; ++i) {
+        if (HP[16] * HP[16] > HPHT_plus_R * _cov[16][16]) {
+            return 2;    
+        }
+
+        // K = P * H' * (H * P * H' + R)^-1
+        K[16] = HP[16] / HPHT_plus_R;
+
+        // x = x + K * e
+        _error_state[16] += K[16] * obs_error;
+
+        // P = P - K * H * P
+        for (unsigned char j = 0; j <= 16; ++j) {
+            _cov[j][16] -= K[j] * HP[16];
+        }
+    }
+
+    if (_control_status.flags.dec) {
+        // Don't correct error state unless (I - KH) * P >= 0 <=> P - PH'(HPH'+R)^-1HP >= 0
+        for (unsigned char i = 17; i < 19; ++i) {
             if (HP[i] * HP[i] > HPHT_plus_R * _cov[i][i]) {
                 return 2;    
             }
         }
 
         // K = P * H' * (H * P * H' + R)^-1
-        for (unsigned char i = 16; i < 19; ++i) {
+        for (unsigned char i = 17; i < 19; ++i) {
             K[i] = HP[i] / HPHT_plus_R;
         }
 
         // x = x + K * e
-        for (unsigned char i = 16; i < 19; ++i) {
+        for (unsigned char i = 17; i < 19; ++i) {
             _error_state[i] += K[i] * obs_error;
         }
 
         // P = P - K * H * P
-        for (unsigned char i = 16; i < 19; ++i) {
+        for (unsigned char i = 17; i < 19; ++i) {
             for (unsigned char j = 0; j <= i; ++j) {
                 _cov[j][i] -= K[j] * HP[i];
             }
         }
+    }
 
-        if (_control_status.flags.mag_bias) {
-            // Don't correct error state unless (I - KH) * P >= 0 <=> P - PH'(HPH'+R)^-1HP >= 0
-            for (unsigned char i = 19; i < 22; ++i) {
-                if (HP[i] * HP[i] > HPHT_plus_R * _cov[i][i]) {
-                    return 2;    
-                }
+    if (_control_status.flags.mag_bias) {
+        // Don't correct error state unless (I - KH) * P >= 0 <=> P - PH'(HPH'+R)^-1HP >= 0
+        for (unsigned char i = 19; i < 22; ++i) {
+            if (HP[i] * HP[i] > HPHT_plus_R * _cov[i][i]) {
+                return 2;    
             }
+        }
 
-            // K = P * H' * (H * P * H' + R)^-1
-            for (unsigned char i = 19; i < 22; ++i) {
-                K[i] = HP[i] / HPHT_plus_R;
-            }
+        // K = P * H' * (H * P * H' + R)^-1
+        for (unsigned char i = 19; i < 22; ++i) {
+            K[i] = HP[i] / HPHT_plus_R;
+        }
 
-            // x = x + K * e
-            for (unsigned char i = 19; i < 22; ++i) {
-                _error_state[i] += K[i] * obs_error;
-            }
+        // x = x + K * e
+        for (unsigned char i = 19; i < 22; ++i) {
+            _error_state[i] += K[i] * obs_error;
+        }
 
-            // P = P - K * H * P
-            for (unsigned char i = 19; i < 22; ++i) {
-                for (unsigned char j = 0; j <= i; ++j) {
-                    _cov[j][i] -= K[j] * HP[i];
-                }
+        // P = P - K * H * P
+        for (unsigned char i = 19; i < 22; ++i) {
+            for (unsigned char j = 0; j <= i; ++j) {
+                _cov[j][i] -= K[j] * HP[i];
             }
         }
     }

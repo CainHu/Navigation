@@ -60,7 +60,7 @@ int main() {
 
     Vector3f G(0.f, 0.f, g);
     Vector3f M(0.9f, sqrtf(1.f - 0.9f * 0.9f), 0.f);
-    float declination = atan2f(M[1], M[0]);
+    Vector2f declination(-asinf(M[2]), atan2f(M[1], M[0]));
 
     Vector3f p(0.f, 0.f, 0.f), v(0.f, 0.f, 0.f), bg(0.f, 0.f, 0.f), ba(0.f, 0.f, 0.f), bm(0.f, 0.f, 0.f);
     Quaternionf q(1.f, 0.f, 0.f, 0.f);
@@ -179,11 +179,13 @@ int main() {
     eskf_rtk.set_drift_saccelerometer_tandard_deviation(eskf::noise_std_drift_acc);
     eskf_rtk.set_gravity_standard_deviation(eskf::noise_std_proc_grav);
     eskf_rtk.set_magnet_standard_deviation(eskf::noise_std_proc_mag);
+    eskf_rtk.set_declination_standard_deviation(eskf::noise_std_dec);
     eskf_rtk.set_drift_magnetometer_standard_deviation(eskf::noise_std_drift_mag);
     eskf_rtk.set_processing_standard_deviation(eskf::noise_std_proc);
     eskf_rtk.enable_estimation_acc_bias();
     eskf_rtk.enable_estimation_gravity();
     eskf_rtk.enable_estimation_magnet();
+    eskf_rtk.enable_estimation_declination();
     eskf_rtk.enable_estimation_magnet_bias();
     // eskf_rtk.disable_estimation_magnet();
     // eskf_rtk.disable_estimation_magnet_bias();
@@ -211,15 +213,11 @@ int main() {
         if (info != 0) {
             cout << "vr: " << int(info) << endl;
         }
-        // info = eskf_rtk.fuse_magnet(mb_meas[i], w_meas[i], a_meas[i], eskf::noise_std_mag, eskf::gate_mag);
-        // if (info != 0) {
-        //     cout << "m: " << int(info) << endl;
-        // }
-        info = eskf_rtk.fuse_declination(declination, mb_meas[i], w_meas[i], a_meas[i], eskf::noise_std_dec, eskf::gate_dec);
+        info = eskf_rtk.fuse_magnet(mb_meas[i], w_meas[i], a_meas[i], eskf::noise_std_mag, eskf::gate_mag);
         if (info != 0) {
             cout << "m: " << int(info) << endl;
         }
-        info = eskf_rtk.fuse_magnet_1D(declination, mb_meas[i], w_meas[i], a_meas[i], eskf::noise_std_mag_1d, eskf::gate_mag_1d);
+        info = eskf_rtk.fuse_declination(declination, w_meas[i], a_meas[i], eskf::noise_std_dec, eskf::gate_dec);
         if (info != 0) {
             cout << "m: " << int(info) << endl;
         }
@@ -232,8 +230,11 @@ int main() {
         bg_hat[i] = eskf_rtk.get_drift_gyro();
         ba_hat[i] = eskf_rtk.get_drift_acc();
         g_hat[i] = eskf_rtk.get_gravity();
-        mb_hat[i] = q_hat[i].toRotationMatrix().transpose() * eskf_rtk.get_magnet(); 
+        // mb_hat[i] = q_hat[i].toRotationMatrix().transpose() * eskf_rtk.get_magnet(); 
         bm_hat[i] = eskf_rtk.get_drift_magnet();
+
+        float h = eskf_rtk.get_magnet();
+        const Vector2f &dec = eskf_rtk.get_declination();
 
         // cout << g_hat[i] << endl;
 
@@ -244,6 +245,8 @@ int main() {
         // cout << mb_true[i].transpose() << ", " << mb_hat[i].transpose() << endl;
 
         // cout << M.transpose() << ", " << eskf_rtk.get_magnet().transpose() << endl;
+
+        // cout << "H: (" << 1.f << ", " << h << "), dec: (" << declination[0] << ", " << dec[0] << "), (" << declination[1] << ", " << dec[1] << ")" << endl;
 
         cout << q_true[i].z() << ", " << q_hat[i].z() << endl;
     }

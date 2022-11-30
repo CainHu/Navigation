@@ -20,6 +20,7 @@ namespace eskf {
             bool acc_z_bias : 1;
             bool grav : 1;
             bool mag : 1;
+            bool dec : 1;
             bool mag_bias : 1;
             bool wind : 1;
         } flags;
@@ -31,6 +32,7 @@ namespace eskf {
             bool reject_pos : 1;
             bool reject_vel : 1;
             bool reject_mag : 1;
+            bool reject_dec : 1;
             bool reject_wind : 1;
         } flags;
         unsigned char status;
@@ -40,8 +42,8 @@ namespace eskf {
     public:
         constexpr static unsigned char dim {24};
 
-        ESKF(float dt, const float g=9.8f, const float mx=1.f, const float my=0.f, const float mz=0.f) 
-             : _g_init(g), _g(g), _m_init(mx, my, mz), _m(mx, my, mz), _dt(dt), _dt2(dt * dt) {   
+        ESKF(float dt, const float g=9.8f, const float h=1.f, const float dec_y=0.f, const float dec_z=0.f) 
+             : _g_init(g), _g(g), _h_init(h), _h(h), _dec_init(dec_y, dec_z), _dec(dec_y, dec_z), _dt(dt), _dt2(dt * dt) {   
             _rot.setIdentity();
             reset_priori_covariance_matrix();
             reset_state();
@@ -62,8 +64,7 @@ namespace eskf {
         virtual unsigned char fuse_position(const Vector3f &pos, const Vector3f &w, const Vector3f &a, const Vector3f &dis, const Vector3f &noise_std, const Vector3f &gate) = 0;
         virtual unsigned char fuse_velocity(const Vector3f &vel, const Vector3f &w, const Vector3f &a, const Vector3f &dis, const Vector3f &noise_std, const Vector3f &gate) = 0;
         virtual unsigned char fuse_magnet(const Vector3f &mag, const Vector3f &w, const Vector3f &a, const Vector3f &noise_std, const Vector3f &gate) = 0;
-        virtual unsigned char fuse_declination(const float &dec, const Vector3f &mag, const Vector3f &w, const Vector3f &a, const float &noise_std, const float &gate) = 0;
-        virtual unsigned char fuse_magnet_1D(const float &dec, const Vector3f &mag, const Vector3f &w, const Vector3f &a, const float &noise_std, const float &gate) = 0;
+        virtual unsigned char fuse_declination(const Vector2f &dec, const Vector3f &w, const Vector3f &a, const Vector2f &noise_std, const Vector2f &gate) = 0;
 
         virtual void correct_state() = 0;
         virtual void correct_covariance() = 0;
@@ -75,7 +76,8 @@ namespace eskf {
             _bg.setZero();
             _ba.setZero();
             _g = _g_init;
-            _m = _m_init;
+            _h = _h_init;
+            _dec = _dec_init;
             _bm.setZero();
             _w.setZero();
             _rot.setIdentity();
@@ -191,10 +193,8 @@ namespace eskf {
         }
         void enable_estimation_gravity() { _control_status.flags.grav = true; };
         void enable_estimation_magnet() { _control_status.flags.mag = true; };
-        void enable_estimation_magnet_bias() { 
-            _control_status.flags.mag_bias = true; 
-            enable_estimation_magnet();
-        };
+        void enable_estimation_declination() { _control_status.flags.dec = true; };
+        void enable_estimation_magnet_bias() { _control_status.flags.mag_bias = true; };
         void enable_estimation_wind() { _control_status.flags.wind = true; } ;
 
         void disable_estimation_acc_x_bias() { 
@@ -226,18 +226,23 @@ namespace eskf {
             reset_accmulator_cov<1>(15);
             regular_covariance_to_symmetric<1>(15);
         };
+        void disable_estimation_magnet() { 
+            _control_status.flags.mag = false; 
+            reset_covariance_matrix<1>(16, 0.f);
+            reset_accmulator_cov<1>(16);
+            regular_covariance_to_symmetric<1>(16);
+        };
+        void disable_estimation_declination() { 
+            _control_status.flags.mag = false; 
+            reset_covariance_matrix<2>(17, 0.f);
+            reset_accmulator_cov<2>(17);
+            regular_covariance_to_symmetric<2>(17);
+        };
         void disable_estimation_magnet_bias() { 
             _control_status.flags.mag_bias = false; 
             reset_covariance_matrix<3>(19, 0.f);
             reset_accmulator_cov<3>(19);
             regular_covariance_to_symmetric<3>(19);
-        };
-        void disable_estimation_magnet() { 
-            _control_status.flags.mag = false; 
-            reset_covariance_matrix<3>(16, 0.f);
-            reset_accmulator_cov<3>(16);
-            regular_covariance_to_symmetric<3>(16);
-            disable_estimation_magnet_bias();
         };
         void disable_estimation_wind() { 
             _control_status.flags.wind = false; 
@@ -252,7 +257,8 @@ namespace eskf {
         const Vector3f &get_velocity() const { return _v; };
         const Vector3f &get_drift_gyro() const { return _bg; };
         const Vector3f &get_drift_acc() const { return _ba; };
-        const Vector3f &get_magnet() const { return _m; };
+        const float get_magnet() const { return _h; };
+        const Vector2f &get_declination() const { return _dec; };
         const Vector3f &get_drift_magnet() const { return _bm; };
         const Vector2f &get_wind() const { return _w; };
         const Matrix3f &get_rotation_matrix() const { return _rot; };
@@ -270,7 +276,8 @@ namespace eskf {
         void set_velocity(const Vector3f &v) { _v = v; };
         void set_drift_gyro(const Vector3f &bg) { _bg = bg; };
         void set_drift_acc(const Vector3f &ba) { _ba = ba; };
-        void set_magnet(const Vector3f &m) { _m_init = m; _m = m; };
+        void set_magnet(const float h) { _h_init = h; _h = h; };
+        void set_declination(const Vector2f &dec) { _dec_init = dec; _dec = dec; };
         void set_drift_magnet(const Vector3f &bm) { _bm = bm; };
         void set_wind(const Vector2f &w) { _w = w; };
         void set_attitude(const Matrix3f &r) { _rot = r; _q = _rot; };
@@ -281,7 +288,8 @@ namespace eskf {
         void set_drift_saccelerometer_tandard_deviation(const Vector3f &std) { _q_cov[12] = std[0] * std[0]; _q_cov[13] = std[1] * std[1]; _q_cov[14] = std[2] * std[2]; }
         void set_drift_gyroscope_standard_deviation(const Vector3f &std) { _q_cov[9] = std[0] * std[0]; _q_cov[10] = std[1] * std[1]; _q_cov[11] = std[2] * std[2]; }
         void set_gravity_standard_deviation(const float std) { _q_cov[15] = std * std; };
-        void set_magnet_standard_deviation(const Vector3f &std) { _q_cov[16] = std[0] * std[0]; _q_cov[17] = std[1] * std[1]; _q_cov[18] = std[2] * std[2]; }
+        void set_magnet_standard_deviation(const float std) { _q_cov[16] = std * std; };
+        void set_declination_standard_deviation(const Vector2f &std) { _q_cov[17] = std[0] * std[0]; _q_cov[18] = std[1] * std[1]; };
         void set_drift_magnetometer_standard_deviation(const Vector3f &std) { _q_cov[19] = std[0] * std[0]; _q_cov[20] = std[1] * std[1]; _q_cov[21] = std[2] * std[2]; }
         void set_wind_standard_deviation(const Vector2f &std) { _q_cov[22] = std[0] * std[0]; _q_cov[23] = std[1] * std[1]; }
         void set_processing_standard_deviation(const float std) { for (unsigned char i = 0; i < dim; ++i) { _q_cov[i] += std * std; } };
@@ -291,17 +299,20 @@ namespace eskf {
         filter_control_status _control_status {0};
         innovation_fault_status _innovation_fault_status {0};
 
-        float _g_init;                 // Initial gravity constant
-        Vector3f _m_init;              // Initial magnetic field
+        float _g_init;                  // Initial gravity constant
+        float _h_init;                  // Initial magnetic field intensity
+        Vector2f _dec_init;              // Initial Declination
 
         float _dt;                      // Sample time of IMU
         float _dt2;                     // Square of sample time
 
-        Matrix<float, dim, 1> _q_cov {};         // Priori covariance matrix
+        Matrix<float, dim, 1> _q_cov {};        // Priori covariance matrix
   
         Vector3f _p, _v, _bg, _ba;              // Translational state: p, v, bg, ba
         float _g;                               // Gravity constant
-        Vector3f _m, _bm;                       // Translational state: m, bm
+        float _h;                               // Magnetic field intensity
+        Vector2f _dec;                          // declination              
+        Vector3f _bm;                           // Translational state: bh
         Vector2f _w;                            // Translational state: w
         Matrix3f _rot;                          // Rotation matrix from body frame to world frame
         Quaternionf _q;                         // Quaternion matrix from body frame to world frame
