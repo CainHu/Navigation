@@ -9,7 +9,8 @@
                 "${workspaceFolder}/include/leskf",
                 "${workspaceFolder}/include/geskf",
                 "${workspaceFolder}/include/liekf",
-                "${workspaceFolder}/include/riekf"
+                "${workspaceFolder}/include/riekf",
+                "${workspaceFolder}/include/generator"
             ],
             "defines": [
                 "_DEBUG",

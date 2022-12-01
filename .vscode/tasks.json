@@ -19,6 +19,8 @@
                 "${workspaceFolder}/src/liekf/*.cpp",
                 "-g",
                 "${workspaceFolder}/src/riekf/*.cpp",
+                "-g",
+                "${workspaceFolder}/src/generator/*.cpp",
                 "-o",
                 "${fileDirname}\\${fileBasenameNoExtension}.exe",
                 "-I",
@@ -32,7 +34,9 @@
                 "-I",
                 "${workspaceFolder}/include/liekf",
                 "-I",
-                "${workspaceFolder}/include/riekf"
+                "${workspaceFolder}/include/riekf",
+                "-I",
+                "${workspaceFolder}/include/generator"
             ],
             "options": {
                 "cwd": "${fileDirname}"

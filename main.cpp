@@ -240,7 +240,7 @@ int main() {
 
         // cout << eskf_rtk.get_wind() << endl;
 
-        // cout << p_true[i].transpose() << ", " << p_hat[i].transpose() << endl;
+        // cout << p_true[i].transposce() << ", " << p_hat[i].transpose() << endl;
 
         // cout << mb_true[i].transpose() << ", " << mb_hat[i].transpose() << endl;
 
