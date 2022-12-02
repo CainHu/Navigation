@@ -30,4 +30,40 @@ const double dpsh = arcdeg / sqrt(hur);
 const double ugpsHz = ug / sqrt(1.);
 
 
+Eigen::Vector3d geo2earth(const Eigen::Vector3d &pos) {
+    const double cosL = cos(pos[0]), sinL = sin(pos[0]);
+    const double coslam = cos(pos[1]), sinlam = sin(pos[1]);
+    const double tmp = 1. - e2 * sinL * sinL;
+    const double RN = Re / sqrt(tmp);
+    return Eigen::Vector3d((RN + pos[2]) * cosL * coslam, (RN + pos[2]) * cosL * sinlam, (RN * (1. - e2) + pos[2]) * sinL);
+}
+
+Eigen::Vector3d earth2nav(const Eigen::Vector3d &earth, const Eigen::Vector3d &geo) {
+    Eigen::Matrix3d Rne;
+    const double cosL = cos(geo[0]), sinL = sin(geo[0]);
+    const double coslam = cos(geo[1]), sinlam = sin(geo[1]);
+
+    Rne << -sinL * coslam, -sinL * sinlam, cosL,
+           -sinlam, coslam, 0.,
+           -cosL * coslam, -cosL * sinlam, -sinL;
+
+    return Rne * earth;       
+}
+
+Eigen::Vector3d diff_geo(const Eigen::Vector3d &geo2, const Eigen::Vector3d &geo1) {
+    Eigen::Matrix3d Rne;
+    const double cosL = cos(geo2[0]), sinL = sin(geo2[0]);
+    const double coslam = cos(geo2[1]), sinlam = sin(geo2[1]);
+
+    Rne << -sinL * coslam, -sinL * sinlam, cosL,
+           -sinlam, coslam, 0.,
+           -cosL * coslam, -cosL * sinlam, -sinL;
+
+    Eigen::Vector3d earth2 = geo2earth(geo2);
+    Eigen::Vector3d earth1 = geo2earth(geo1);   
+
+    return Rne * (earth2 - earth1);    
+}
+
+
 
