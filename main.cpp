@@ -449,9 +449,9 @@ int main() {
 
         // cout << eskf_rtk.get_wind() << endl;
 
-        cout << pn[i].transpose() << ", " << p_hat[i].transpose() << endl;
+        // cout << pn[i].transpose() << ", " << p_hat[i].transpose() << endl;
         // cout << vn[i].transpose() << ", " << v_hat[i].transpose() << endl;
-        // cout << euler[i].transpose() << ", " << euler_hat[i].transpose() << endl;
+        cout << euler[i].transpose() << ", " << euler_hat[i].transpose() << endl;
         // cout << bg_hat[i].transpose() << ", " << ba_hat[i].transpose() << ", " << g_hat[i] << endl;
         // if (i > 0){
         //     cout << (wm[i] + 1./12. * wm[i - 1].cross(wm[i])) / ts << endl;
