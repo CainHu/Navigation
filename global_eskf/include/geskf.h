@@ -2,8 +2,8 @@
 // Created by Cain on 2022/11/19.
 //
 
-#ifndef NAVIGATION_GESKF_GESKF_H
-#define NAVIGATION_GESKF_GESKF_H
+#ifndef NAVIGATION_GLOBAL_ESKF_GESKF_H
+#define NAVIGATION_GLOBAL_ESKF_GESKF_H
 
 #include <Eigen/Dense>
 #include <cmath>
@@ -32,4 +32,4 @@ namespace geskf {
     };
 }
 
-#endif //NAVIGATION_GESKF_GESKF_H
+#endif //NAVIGATION_GLOBAL_ESKF_GESKF_H

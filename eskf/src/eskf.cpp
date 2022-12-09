@@ -349,17 +349,19 @@ unsigned char ESKF::conservative_posteriori_estimate(const array<float, ESKF::di
     return 0;
 }
 
-bool ESKF::update() {
-    bool updated = false;
+bool ESKF::update(const ImuSample &sample) {
 
-    if (_imu_updated) {
-        predict_state(_imu_sample_delayed.delta_ang, _imu_sample_delayed.delta_vel);
-        predict_covariance(_imu_sample_delayed.delta_ang, _imu_sample_delayed.delta_vel);
+    // _imu_sample_delayed = imu_buffer.get_oldest();
+    // imu_buffer.push(sample);
 
-        updated = true;
-    }
+    // if (_imu_updated) {
+    //     predict_state(_imu_sample_delayed.delta_ang, _imu_sample_delayed.delta_vel);
+    //     predict_covariance(_imu_sample_delayed.delta_ang, _imu_sample_delayed.delta_vel);
 
-    correct_output_states(_newest_high_rate_imu_sample);
+    //     updated = true;
+    // }
 
-    return updated;
+    // correct_output_states(_newest_high_rate_imu_sample);
+
+    // return updated;
 }

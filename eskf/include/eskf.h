@@ -8,7 +8,7 @@
 #include <Eigen/Dense>
 #include <cmath>
 #include <array>
-#include "ring_buffer.h"
+#include "utils.h"
 #include "common.h"
 
 namespace eskf {
@@ -34,7 +34,7 @@ namespace eskf {
         }
 
         void initialize();
-        bool update();
+        bool update(const ImuSample &sample);
 
         // Priori
         void predict_state(const Vector3f &w, const Vector3f &a);
@@ -329,9 +329,14 @@ namespace eskf {
             airspeed_buffer.push(sample);
         }
 
+        parameters _params {};
+
     protected:
         filter_control_status _control_status {0};
         innovation_fault_status _innovation_fault_status {0};
+
+        // State _state;
+        // ErrorState _error_state;
 
         float _g_init;                  // Initial gravity constant
         float _h_init;                  // Initial magnetic field intensity

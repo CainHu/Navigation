@@ -8,11 +8,13 @@
 #include <Eigen/Dense>
 #include <algorithm>
 #include <random>
+// #include "eskf/include/common.h"
 #include "leskf.h"
 #include "geskf.h"
 #include "liekf.h"
 #include "riekf.h"
-#include "param.h"
+// #include "param.h"
+#include "common.h"
 #include "generator.h"
 #include "gvar.h"
 #include "gen_utils.h"
@@ -266,6 +268,13 @@ int main() {
     // 飞行数据生成
     float ts = 0.001;
     double ts_sim = 0.001;
+
+    // leskf::LESKF eskf_rtk(ts);
+    geskf::GESKF eskf_rtk(ts);
+    // liekf::LIEKF eskf_rtk(ts);
+    // riekf::RIEKF eskf_rtk(ts);
+    // eskf_rtk.set_magnet(M);
+
     Vector3d euler0(0., 0., 0.), vn0(0., 0., 0.), pos0(23.1659394 * arcdeg, 113.4522718 * arcdeg, 20.);
     vector<array<double, 5>> wat(13);
     wat[0][0] = 0., wat[0][1] = 0., wat[0][2] = 0., wat[0][3] = 0., wat[0][4] = 10.;            // 静止
@@ -338,21 +347,21 @@ int main() {
 
     default_random_engine random_engine;
     normal_distribution<float> dist(0.f, 1.f);
-    const Vector3f dl(eskf::d_gps_left[0], eskf::d_gps_left[1], eskf::d_gps_left[2]);
-    const Vector3f dr(eskf::d_gps_right[0], eskf::d_gps_right[1], eskf::d_gps_right[2]);
+    const Vector3f dl(eskf_rtk._params.d_gps_left[0], eskf_rtk._params.d_gps_left[1], eskf_rtk._params.d_gps_left[2]);
+    const Vector3f dr(eskf_rtk._params.d_gps_right[0], eskf_rtk._params.d_gps_right[1], eskf_rtk._params.d_gps_right[2]);
     for (unsigned int i = 0; i < pos.size(); ++i) {
-        Vector3f npl(dist(random_engine) * eskf::noise_std_rtk_pos[0],
-                        dist(random_engine) * eskf::noise_std_rtk_pos[1],
-                        dist(random_engine) * eskf::noise_std_rtk_pos[2]);
-        Vector3f nvl(dist(random_engine) * eskf::noise_std_gps_vel[0],
-                        dist(random_engine) * eskf::noise_std_gps_vel[1],
-                        dist(random_engine) * eskf::noise_std_gps_vel[2]);
-        Vector3f npr(dist(random_engine) * eskf::noise_std_rtk_pos[0],
-                        dist(random_engine) * eskf::noise_std_rtk_pos[1],
-                        dist(random_engine) * eskf::noise_std_rtk_pos[2]);
-        Vector3f nvr(dist(random_engine) * eskf::noise_std_gps_vel[0],
-                        dist(random_engine) * eskf::noise_std_gps_vel[1],
-                        dist(random_engine) * eskf::noise_std_gps_vel[2]);
+        Vector3f npl(dist(random_engine) * eskf_rtk._params.noise_std_rtk_pos[0],
+                        dist(random_engine) * eskf_rtk._params.noise_std_rtk_pos[1],
+                        dist(random_engine) * eskf_rtk._params.noise_std_rtk_pos[2]);
+        Vector3f nvl(dist(random_engine) * eskf_rtk._params.noise_std_gps_vel[0],
+                        dist(random_engine) * eskf_rtk._params.noise_std_gps_vel[1],
+                        dist(random_engine) * eskf_rtk._params.noise_std_gps_vel[2]);
+        Vector3f npr(dist(random_engine) * eskf_rtk._params.noise_std_rtk_pos[0],
+                        dist(random_engine) * eskf_rtk._params.noise_std_rtk_pos[1],
+                        dist(random_engine) * eskf_rtk._params.noise_std_rtk_pos[2]);
+        Vector3f nvr(dist(random_engine) * eskf_rtk._params.noise_std_gps_vel[0],
+                        dist(random_engine) * eskf_rtk._params.noise_std_gps_vel[1],
+                        dist(random_engine) * eskf_rtk._params.noise_std_gps_vel[2]);
 
         Matrix3f R = generator::euler2rot(euler[i]).cast<float>();                
 
@@ -365,20 +374,16 @@ int main() {
     }
 
     // 数据融合
-        // leskf::LESKF eskf_rtk(ts);
-    geskf::GESKF eskf_rtk(ts);
-    // liekf::LIEKF eskf_rtk(ts);
-    // riekf::RIEKF eskf_rtk(ts);
-    // eskf_rtk.set_magnet(M);
-    eskf_rtk.set_gyroscope_standard_deviation(eskf::noise_std_gyro);
-    eskf_rtk.set_accelerometer_standard_deviation(eskf::noise_std_acc);
-    eskf_rtk.set_drift_gyroscope_standard_deviation(eskf::noise_std_drift_gyro);
-    eskf_rtk.set_drift_saccelerometer_tandard_deviation(eskf::noise_std_drift_acc);
-    eskf_rtk.set_gravity_standard_deviation(eskf::noise_std_proc_grav);
-    eskf_rtk.set_magnet_standard_deviation(eskf::noise_std_proc_mag);
-    eskf_rtk.set_declination_standard_deviation(eskf::noise_std_dec);
-    eskf_rtk.set_drift_magnetometer_standard_deviation(eskf::noise_std_drift_mag);
-    eskf_rtk.set_processing_standard_deviation(eskf::noise_std_proc);
+        
+    eskf_rtk.set_gyroscope_standard_deviation(eskf_rtk._params.noise_std_gyro);
+    eskf_rtk.set_accelerometer_standard_deviation(eskf_rtk._params.noise_std_acc);
+    eskf_rtk.set_drift_gyroscope_standard_deviation(eskf_rtk._params.noise_std_drift_gyro);
+    eskf_rtk.set_drift_saccelerometer_tandard_deviation(eskf_rtk._params.noise_std_drift_acc);
+    eskf_rtk.set_gravity_standard_deviation(eskf_rtk._params.noise_std_proc_grav);
+    eskf_rtk.set_magnet_standard_deviation(eskf_rtk._params.noise_std_proc_mag);
+    eskf_rtk.set_declination_standard_deviation(eskf_rtk._params.noise_std_dec);
+    eskf_rtk.set_drift_magnetometer_standard_deviation(eskf_rtk._params.noise_std_drift_mag);
+    eskf_rtk.set_processing_standard_deviation(eskf_rtk._params.noise_std_proc);
     eskf_rtk.enable_estimation_acc_bias();
     eskf_rtk.enable_estimation_gravity();
     // eskf_rtk.enable_estimation_magnet();
@@ -406,19 +411,19 @@ int main() {
         eskf_rtk.predict_state(w, a);
         eskf_rtk.predict_covariance(w, a);
         unsigned char info;
-        info = eskf_rtk.fuse_position(pl_meas[i], w, a, eskf::d_gps_left, eskf::noise_std_rtk_pos, eskf::gate_rtk_pos);
+        info = eskf_rtk.fuse_position(pl_meas[i], w, a, eskf_rtk._params.d_gps_left, eskf_rtk._params.noise_std_rtk_pos, eskf_rtk._params.gate_rtk_pos);
         if (info != 0) {
             cout << "pl: " << int(info) << endl;
         }
-        info = eskf_rtk.fuse_velocity(vl_meas[i], w, a, eskf::d_gps_left, eskf::noise_std_gps_vel, eskf::gate_gps_vel);
+        info = eskf_rtk.fuse_velocity(vl_meas[i], w, a, eskf_rtk._params.d_gps_left, eskf_rtk._params.noise_std_gps_vel, eskf_rtk._params.gate_gps_vel);
         if (info != 0) {
             cout << "vl: " << int(info) << endl;
         }
-        info = eskf_rtk.fuse_position(pr_meas[i], w, a, eskf::d_gps_right, eskf::noise_std_rtk_pos, eskf::gate_rtk_pos);
+        info = eskf_rtk.fuse_position(pr_meas[i], w, a, eskf_rtk._params.d_gps_right, eskf_rtk._params.noise_std_rtk_pos, eskf_rtk._params.gate_rtk_pos);
         if (info != 0) {
             cout << "pr: " << int(info) << endl;
         }
-        info = eskf_rtk.fuse_velocity(vr_meas[i], w, a, eskf::d_gps_right, eskf::noise_std_gps_vel, eskf::gate_gps_vel);
+        info = eskf_rtk.fuse_velocity(vr_meas[i], w, a, eskf_rtk._params.d_gps_right, eskf_rtk._params.noise_std_gps_vel, eskf_rtk._params.gate_gps_vel);
         if (info != 0) {
             cout << "vr: " << int(info) << endl;
         }

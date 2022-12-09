@@ -3,7 +3,7 @@ project(Navigation)
 
 set(CMAKE_CXX_STANDARD 14)
 
-set(CMAKE_BUILD_TYPE Release)
+set(CMAKE_BUILD_TYPE Debug)
 
 if (NOT CMAKE_BUILD_TYPE)
     message("not defined Build Type:auto define it to Debug" )
@@ -25,19 +25,27 @@ else()
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g ")
 endif (CMAKE_BUILD_TYPE MATCHES "Debug")
 
+add_subdirectory(eskf)
+add_subdirectory(global_eskf)
+
 include_directories("E:\\eigen3")
-include_directories("${PROJECT_SOURCE_DIR}\\include\\eskf")
+# include_directories("${PROJECT_SOURCE_DIR}\\include\\eskf")
 include_directories("${PROJECT_SOURCE_DIR}\\include\\leskf")
-include_directories("${PROJECT_SOURCE_DIR}\\include\\geskf")
+# include_directories("${PROJECT_SOURCE_DIR}\\include\\geskf")
 include_directories("${PROJECT_SOURCE_DIR}\\include\\liekf")
 include_directories("${PROJECT_SOURCE_DIR}\\include\\riekf")
 include_directories("${PROJECT_SOURCE_DIR}\\include\\generator")
 
-aux_source_directory(${PROJECT_SOURCE_DIR}/src/eskf ESKF)
+# aux_source_directory(${PROJECT_SOURCE_DIR}/src/eskf ESKF)
 aux_source_directory(${PROJECT_SOURCE_DIR}/src/leskf LESKF)
-aux_source_directory(${PROJECT_SOURCE_DIR}/src/geskf GESKF)
+# aux_source_directory(${PROJECT_SOURCE_DIR}/src/geskf GESKF)
 aux_source_directory(${PROJECT_SOURCE_DIR}/src/liekf LIEKF)
 aux_source_directory(${PROJECT_SOURCE_DIR}/src/riekf RIEKF)
 aux_source_directory(${PROJECT_SOURCE_DIR}/src/generator GENERATOR)
 
-add_executable(Navigation main.cpp ${ESKF} ${LESKF} ${GESKF} ${LIEKF} ${RIEKF} ${GENERATOR})
+# add_executable(Navigation main.cpp ${ESKF} ${LESKF} ${GESKF} ${LIEKF} ${RIEKF} ${GENERATOR})
+# add_executable(Navigation main.cpp ${LESKF} ${GESKF} ${LIEKF} ${RIEKF} ${GENERATOR})
+add_executable(Navigation main.cpp ${LESKF} ${LIEKF} ${RIEKF} ${GENERATOR})
+
+target_link_libraries(Navigation ESKF)
+target_link_libraries(Navigation GESKF)
