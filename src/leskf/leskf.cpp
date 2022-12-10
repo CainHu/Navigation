@@ -395,7 +395,7 @@ namespace leskf {
             add_processing_covariance<2>(22);
         }
 
-        regular_covariance_to_symmetric<ESKF::dim>(0);
+        regular_covariance_to_symmetric<ESKF::DIM>(0);
     }
 
     unsigned char LESKF::fuse_position(const Vector3f &pos, const Vector3f &w, const Vector3f &a, 
@@ -435,7 +435,7 @@ namespace leskf {
 
             // H * P  or  P * H'
             const float cov_1_dim = (dim == 2) ? _cov[1][dim] : _cov[dim][1];
-            array<float, ESKF::dim> HP = {_cov[0][dim] + _cov[0][6]*minus_rot_d_hat[0] + _cov[0][7]*minus_rot_d_hat[1] + _cov[0][8]*minus_rot_d_hat[2],
+            array<float, ESKF::DIM> HP = {_cov[0][dim] + _cov[0][6]*minus_rot_d_hat[0] + _cov[0][7]*minus_rot_d_hat[1] + _cov[0][8]*minus_rot_d_hat[2],
                                             cov_1_dim + _cov[1][6]*minus_rot_d_hat[0] + _cov[1][7]*minus_rot_d_hat[1] + _cov[1][8]*minus_rot_d_hat[2],
                                             _cov[dim][2] + _cov[2][6]*minus_rot_d_hat[0] + _cov[2][7]*minus_rot_d_hat[1] + _cov[2][8]*minus_rot_d_hat[2],
                                             _cov[dim][3] + _cov[3][6]*minus_rot_d_hat[0] + _cov[3][7]*minus_rot_d_hat[1] + _cov[3][8]*minus_rot_d_hat[2],
@@ -497,7 +497,7 @@ namespace leskf {
             }
         }  
         
-        regular_covariance_to_symmetric<ESKF::dim>(0); 
+        regular_covariance_to_symmetric<ESKF::DIM>(0);
 
         return info;
     }
@@ -554,7 +554,7 @@ namespace leskf {
             // H * P  or  P * H'
             const unsigned int index = 3 + dim;
             const float cov_4_index = (dim == 2) ? _cov[4][index] : _cov[index][4];
-            array<float, ESKF::dim> HP = {_cov[0][index] + _cov[0][6]*rot_d_cross_w_corr_hat[0] + _cov[0][7]*rot_d_cross_w_corr_hat[1] + _cov[0][8]*rot_d_cross_w_corr_hat[2] + _cov[0][9]*rot_d_hat[0] + _cov[0][10]*rot_d_hat[1] + _cov[0][11]*rot_d_hat[2],
+            array<float, ESKF::DIM> HP = {_cov[0][index] + _cov[0][6]*rot_d_cross_w_corr_hat[0] + _cov[0][7]*rot_d_cross_w_corr_hat[1] + _cov[0][8]*rot_d_cross_w_corr_hat[2] + _cov[0][9]*rot_d_hat[0] + _cov[0][10]*rot_d_hat[1] + _cov[0][11]*rot_d_hat[2],
                                             _cov[1][index] + _cov[1][6]*rot_d_cross_w_corr_hat[0] + _cov[1][7]*rot_d_cross_w_corr_hat[1] + _cov[1][8]*rot_d_cross_w_corr_hat[2] + _cov[1][9]*rot_d_hat[0] + _cov[1][10]*rot_d_hat[1] + _cov[1][11]*rot_d_hat[2],
                                             _cov[2][index] + _cov[2][6]*rot_d_cross_w_corr_hat[0] + _cov[2][7]*rot_d_cross_w_corr_hat[1] + _cov[2][8]*rot_d_cross_w_corr_hat[2] + _cov[2][9]*rot_d_hat[0] + _cov[2][10]*rot_d_hat[1] + _cov[2][11]*rot_d_hat[2],
                                             _cov[3][index] + _cov[3][6]*rot_d_cross_w_corr_hat[0] + _cov[3][7]*rot_d_cross_w_corr_hat[1] + _cov[3][8]*rot_d_cross_w_corr_hat[2] + _cov[3][9]*rot_d_hat[0] + _cov[3][10]*rot_d_hat[1] + _cov[3][11]*rot_d_hat[2],
@@ -616,7 +616,7 @@ namespace leskf {
             }
         }
         
-        regular_covariance_to_symmetric<ESKF::dim>(0);
+        regular_covariance_to_symmetric<ESKF::DIM>(0);
 
         return info;
     }
@@ -685,7 +685,7 @@ namespace leskf {
 
             // H * P  or  P * H'
             const unsigned int index = 19 + dim;
-            array<float, ESKF::dim> HP = {_cov[0][index] * h_inv + _cov[0][6]*rt_rz_ry_ex_hat[dim][0] + _cov[0][7]*rt_rz_ry_ex_hat[dim][1] + _cov[0][8]*rt_rz_ry_ex_hat[dim][2] + _cov[0][16]*rt_rz_ry_ex_h_inv - _cov[0][17]*param_y - _cov[0][18]*rt__rz_ry_ex_hat[2],
+            array<float, ESKF::DIM> HP = {_cov[0][index] * h_inv + _cov[0][6]*rt_rz_ry_ex_hat[dim][0] + _cov[0][7]*rt_rz_ry_ex_hat[dim][1] + _cov[0][8]*rt_rz_ry_ex_hat[dim][2] + _cov[0][16]*rt_rz_ry_ex_h_inv - _cov[0][17]*param_y - _cov[0][18]*rt__rz_ry_ex_hat[2],
                                             _cov[1][index] * h_inv + _cov[1][6]*rt_rz_ry_ex_hat[dim][0] + _cov[1][7]*rt_rz_ry_ex_hat[dim][1] + _cov[1][8]*rt_rz_ry_ex_hat[dim][2] + _cov[1][16]*rt_rz_ry_ex_h_inv - _cov[1][17]*param_y - _cov[1][18]*rt__rz_ry_ex_hat[2],
                                             _cov[2][index] * h_inv + _cov[2][6]*rt_rz_ry_ex_hat[dim][0] + _cov[2][7]*rt_rz_ry_ex_hat[dim][1] + _cov[2][8]*rt_rz_ry_ex_hat[dim][2] + _cov[2][16]*rt_rz_ry_ex_h_inv - _cov[2][17]*param_y - _cov[2][18]*rt__rz_ry_ex_hat[2],
                                             _cov[3][index] * h_inv + _cov[3][6]*rt_rz_ry_ex_hat[dim][0] + _cov[3][7]*rt_rz_ry_ex_hat[dim][1] + _cov[3][8]*rt_rz_ry_ex_hat[dim][2] + _cov[3][16]*rt_rz_ry_ex_h_inv - _cov[3][17]*param_y - _cov[3][18]*rt__rz_ry_ex_hat[2],
@@ -751,7 +751,7 @@ namespace leskf {
             }
         }
         
-        regular_covariance_to_symmetric<ESKF::dim>(0);
+        regular_covariance_to_symmetric<ESKF::DIM>(0);
 
         return info;                 
     }
@@ -778,7 +778,7 @@ namespace leskf {
 
             // H * P  or  P * H'
             const unsigned int index = 17 + dim;
-            array<float, ESKF::dim> HP = {_cov[0][index],
+            array<float, ESKF::DIM> HP = {_cov[0][index],
                                             _cov[1][index],
                                             _cov[2][index],
                                             _cov[3][index],
@@ -833,7 +833,7 @@ namespace leskf {
             }
         }
         
-        regular_covariance_to_symmetric<ESKF::dim>(0);
+        regular_covariance_to_symmetric<ESKF::DIM>(0);
 
         return info;
     }

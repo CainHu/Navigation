@@ -19,7 +19,7 @@ namespace eskf {
 
     class ESKF {
     public:
-        constexpr static unsigned char dim {24};
+        constexpr static unsigned char DIM {24};
 
         ESKF(float dt, const float g=9.8f, const float h=1.f, const float dec_y=0.f, const float dec_z=0.f) 
              : _g_init(g), _g(g), _h_init(h), _h(h), _dec_init(dec_y, dec_z), _dec(dec_y, dec_z), _dt(dt), _dt2(dt * dt) {   
@@ -28,7 +28,7 @@ namespace eskf {
             reset_state();
             reset_error_state();
             reset_accmulator_cov();
-            for (unsigned int i = 0; i < dim; ++i) {
+            for (unsigned int i = 0; i < DIM; ++i) {
                 _cov[i][i] = 1.f;
             }
         }
@@ -75,7 +75,7 @@ namespace eskf {
             _q_cov.setZero();
         }
 
-        void reset_covariance_matrix(const unsigned char start_index, const unsigned char end_index, const Matrix<float, dim, 1> &diag_cov) {
+        void reset_covariance_matrix(const unsigned char start_index, const unsigned char end_index, const Matrix<float, DIM, 1> &diag_cov) {
             for (unsigned char i = start_index; i < end_index; ++i) {
                 // Diaginal
                 _cov[i][i] = diag_cov[i] * _dt2;
@@ -91,7 +91,7 @@ namespace eskf {
                 }
 
                 // Rows
-                for (unsigned char j = end_index; j < ESKF::dim; ++j) {
+                for (unsigned char j = end_index; j < ESKF::DIM; ++j) {
                     _cov[i][j] = 0.f;
                 }
             }
@@ -119,7 +119,7 @@ namespace eskf {
                 }
 
                 // Rows
-                for (unsigned char j = end_index; j < ESKF::dim; ++j) {
+                for (unsigned char j = end_index; j < ESKF::DIM; ++j) {
                     _cov[i][j] = 0.f;
                 }
             }
@@ -143,7 +143,7 @@ namespace eskf {
                 }
 
                 // Rows
-                for (unsigned char j = end_index; j < ESKF::dim; ++j) {
+                for (unsigned char j = end_index; j < ESKF::DIM; ++j) {
                     _cov[i][j] = 0.f;
                 }
             }
@@ -246,8 +246,8 @@ namespace eskf {
         const Quaternionf &get_quaternion() const { return _q; };
         const float get_gravity() const { return _g; };
         const float get_dt() const { return _dt; };
-        const array<float, dim> &get_error_state() const { return _error_state; };
-        const array<array<float, dim>, dim> &get_covariance_matrix() const { return _cov; };
+        const array<float, DIM> &get_error_state() const { return _error_state; };
+        const array<array<float, DIM>, DIM> &get_covariance_matrix() const { return _cov; };
 
 
         // Setters
@@ -273,8 +273,8 @@ namespace eskf {
         void set_declination_standard_deviation(const Vector2f &std) { _q_cov[17] = std[0] * std[0]; _q_cov[18] = std[1] * std[1]; };
         void set_drift_magnetometer_standard_deviation(const Vector3f &std) { _q_cov[19] = std[0] * std[0]; _q_cov[20] = std[1] * std[1]; _q_cov[21] = std[2] * std[2]; }
         void set_wind_standard_deviation(const Vector2f &std) { _q_cov[22] = std[0] * std[0]; _q_cov[23] = std[1] * std[1]; }
-        void set_processing_standard_deviation(const float std) { for (unsigned char i = 0; i < dim; ++i) { _q_cov[i] += std * std; } };
-        void set_priori_covariance_matrix(Matrix<float, dim, 1> &q) { _q_cov = q; };
+        void set_processing_standard_deviation(const float std) { for (unsigned char i = 0; i < DIM; ++i) { _q_cov[i] += std * std; } };
+        void set_priori_covariance_matrix(Matrix<float, DIM, 1> &q) { _q_cov = q; };
 
         void set_imu_data(const Vector3f &w, const Vector3f &a, const float &dt, const unsigned long &time_us) {
             static Vector3f da_last = Vector3f::Zero();
@@ -340,7 +340,7 @@ namespace eskf {
         float _dt;                      // Sample time of IMU
         float _dt2;                     // Square of sample time
 
-        Matrix<float, dim, 1> _q_cov {};        // Priori covariance matrix
+        Matrix<float, DIM, 1> _q_cov {};        // Priori covariance matrix
   
         Vector3f _p, _v, _bg, _ba;              // Translational state: p, v, bg, ba
         float _g;                               // Gravity constant
@@ -351,10 +351,10 @@ namespace eskf {
         Matrix3f _rot;                          // Rotation matrix from body frame to world frame
         Quaternionf _q;                         // Quaternion matrix from body frame to world frame
 
-        array<float, dim> _error_state {};       // [δp, δv, δθ, δbg, δba, δg, δm, δmb, δw]
-        array<array<float, dim>, dim> _cov {};    // Covariance matrix of error state
+        array<float, DIM> _error_state {};       // [δp, δv, δθ, δbg, δba, δg, δm, δmb, δw]
+        array<array<float, DIM>, DIM> _cov {};    // Covariance matrix of error state
 
-        array<float, dim> _accumulator_cov {};   // Accumulator of covariance matrix
+        array<float, DIM> _accumulator_cov {};   // Accumulator of covariance matrix
 
         bool _imu_updated {false};
 
@@ -371,7 +371,7 @@ namespace eskf {
         Queue<PreIntegralSample, DELAYS> pre_buffer;
 
         // Posteriori
-        unsigned char conservative_posteriori_estimate(const array<float, dim> &HP, const float &HPHT_plus_R, const float &obs_error, const float &gate);
+        unsigned char conservative_posteriori_estimate(const array<float, DIM> &HP, const float &HPHT_plus_R, const float &obs_error, const float &gate);
 
         // Utils
         void rotation_from_axis_angle(Matrix3f &r, const array<float, 3> &a) const;
@@ -396,7 +396,7 @@ namespace eskf {
                     _cov[i][j] = _cov[j][i];
                 }
             }
-            for (unsigned char i = end_index; i < ESKF::dim; ++i) {
+            for (unsigned char i = end_index; i < ESKF::DIM; ++i) {
                 for (unsigned char j = start_index; j < end_index; ++j) {
                     _cov[i][j] = _cov[j][i];
                 }
@@ -417,7 +417,7 @@ namespace eskf {
         void copy_covariance_rows_to_cols(unsigned char start_index) {
             unsigned char end_index = start_index + N;
             for (unsigned char i = start_index; i < end_index; ++i) {
-                for (unsigned char j = i + 1; j < dim; ++j) {
+                for (unsigned char j = i + 1; j < DIM; ++j) {
                     _cov[j][i] = _cov[i][j];
                 }
             }

@@ -6,7 +6,7 @@
 #include <cfloat>
 #include <iostream>
 
-namespace geskf {
+namespace eskf {
     using namespace std;
 
     unsigned char GESKF::fuse_magnet(const Vector3f &mag, const Vector3f &w, const Vector3f &a, 
@@ -62,7 +62,7 @@ namespace geskf {
 
             // H * P  or  P * H'
             const unsigned int index = 19 + dim;
-            array<float, ESKF::dim> HP = {_cov[0][index] * h_inv + _cov[0][6]*rt_rz_ry_ex_hat[0] + _cov[0][7]*rt_rz_ry_ex_hat[1] + _cov[0][8]*rt_rz_ry_ex_hat[2] + _cov[0][16]*rt_rz_ry_ex_h_inv - _cov[0][17]*param_y - _cov[0][18]*rt_rz_ry_ex_hat[2],
+            array<float, ESKF::DIM> HP = {_cov[0][index] * h_inv + _cov[0][6]*rt_rz_ry_ex_hat[0] + _cov[0][7]*rt_rz_ry_ex_hat[1] + _cov[0][8]*rt_rz_ry_ex_hat[2] + _cov[0][16]*rt_rz_ry_ex_h_inv - _cov[0][17]*param_y - _cov[0][18]*rt_rz_ry_ex_hat[2],
                                             _cov[1][index] * h_inv + _cov[1][6]*rt_rz_ry_ex_hat[0] + _cov[1][7]*rt_rz_ry_ex_hat[1] + _cov[1][8]*rt_rz_ry_ex_hat[2] + _cov[1][16]*rt_rz_ry_ex_h_inv - _cov[1][17]*param_y - _cov[1][18]*rt_rz_ry_ex_hat[2],
                                             _cov[2][index] * h_inv + _cov[2][6]*rt_rz_ry_ex_hat[0] + _cov[2][7]*rt_rz_ry_ex_hat[1] + _cov[2][8]*rt_rz_ry_ex_hat[2] + _cov[2][16]*rt_rz_ry_ex_h_inv - _cov[2][17]*param_y - _cov[2][18]*rt_rz_ry_ex_hat[2],
                                             _cov[3][index] * h_inv + _cov[3][6]*rt_rz_ry_ex_hat[0] + _cov[3][7]*rt_rz_ry_ex_hat[1] + _cov[3][8]*rt_rz_ry_ex_hat[2] + _cov[3][16]*rt_rz_ry_ex_h_inv - _cov[3][17]*param_y - _cov[3][18]*rt_rz_ry_ex_hat[2],
@@ -129,7 +129,7 @@ namespace geskf {
             }
         }
         
-        regular_covariance_to_symmetric<ESKF::dim>(0);
+        regular_covariance_to_symmetric<ESKF::DIM>(0);
 
         return info;                 
     }

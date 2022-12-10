@@ -9,11 +9,14 @@
 #include <algorithm>
 #include <random>
 // #include "eskf/include/common.h"
-#include "leskf.h"
-#include "geskf.h"
-#include "liekf.h"
-#include "riekf.h"
+//#include "leskf.h"
+//#include "liekf.h"
+//#include "riekf.h"
+
 // #include "param.h"
+
+#include "eskf_runner.h"
+#include "geskf.h"
 #include "common.h"
 #include "generator.h"
 #include "gvar.h"
@@ -23,6 +26,7 @@ using namespace std;
 using namespace Eigen;
 
 generator::Generator env;
+vector<unsigned long> time_us_seq;
 
 int main() {
     // // eskf::ESKF eskf_test(0.001f);
@@ -270,7 +274,8 @@ int main() {
     double ts_sim = 0.001;
 
     // leskf::LESKF eskf_rtk(ts);
-    geskf::GESKF eskf_rtk(ts);
+    eskf::GESKF eskf_rtk(ts);
+    eskf::ESKFRunner<100> eskf_runner(eskf_rtk);
     // liekf::LIEKF eskf_rtk(ts);
     // riekf::RIEKF eskf_rtk(ts);
     // eskf_rtk.set_magnet(M);
@@ -319,6 +324,14 @@ int main() {
     vm_meas.resize(vm.size());
     env.imu_add_err(wm, vm, bias_gyro, std_gyro, bias_acc, std_acc, ts_sim, wm_meas, vm_meas);
 
+    // 时间序列
+    time_us_seq.resize(pos.size());
+    time_us_seq[0] = 0;
+    unsigned long dt_us = (unsigned long)(ts_sim * 1e6f);
+    for (unsigned int i = 1; i < pos.size(); ++i) {
+        time_us_seq[i] = time_us_seq[i - 1] + dt_us;
+    }
+
     // 地球坐标位置转导航坐标
     static vector<Vector3d> pn;
     pn.resize(pos.size());
@@ -347,21 +360,21 @@ int main() {
 
     default_random_engine random_engine;
     normal_distribution<float> dist(0.f, 1.f);
-    const Vector3f dl(eskf_rtk._params.d_gps_left[0], eskf_rtk._params.d_gps_left[1], eskf_rtk._params.d_gps_left[2]);
-    const Vector3f dr(eskf_rtk._params.d_gps_right[0], eskf_rtk._params.d_gps_right[1], eskf_rtk._params.d_gps_right[2]);
+    const Vector3f dl(eskf_runner._params.d_gps_left[0], eskf_runner._params.d_gps_left[1], eskf_runner._params.d_gps_left[2]);
+    const Vector3f dr(eskf_runner._params.d_gps_right[0], eskf_runner._params.d_gps_right[1], eskf_runner._params.d_gps_right[2]);
     for (unsigned int i = 0; i < pos.size(); ++i) {
-        Vector3f npl(dist(random_engine) * eskf_rtk._params.noise_std_rtk_pos[0],
-                        dist(random_engine) * eskf_rtk._params.noise_std_rtk_pos[1],
-                        dist(random_engine) * eskf_rtk._params.noise_std_rtk_pos[2]);
-        Vector3f nvl(dist(random_engine) * eskf_rtk._params.noise_std_gps_vel[0],
-                        dist(random_engine) * eskf_rtk._params.noise_std_gps_vel[1],
-                        dist(random_engine) * eskf_rtk._params.noise_std_gps_vel[2]);
-        Vector3f npr(dist(random_engine) * eskf_rtk._params.noise_std_rtk_pos[0],
-                        dist(random_engine) * eskf_rtk._params.noise_std_rtk_pos[1],
-                        dist(random_engine) * eskf_rtk._params.noise_std_rtk_pos[2]);
-        Vector3f nvr(dist(random_engine) * eskf_rtk._params.noise_std_gps_vel[0],
-                        dist(random_engine) * eskf_rtk._params.noise_std_gps_vel[1],
-                        dist(random_engine) * eskf_rtk._params.noise_std_gps_vel[2]);
+        Vector3f npl(dist(random_engine) * eskf_runner._params.noise_std_pos_rtk[0],
+                        dist(random_engine) * eskf_runner._params.noise_std_pos_rtk[1],
+                        dist(random_engine) * eskf_runner._params.noise_std_pos_rtk[2]);
+        Vector3f nvl(dist(random_engine) * eskf_runner._params.noise_std_vel_gps[0],
+                        dist(random_engine) * eskf_runner._params.noise_std_vel_gps[1],
+                        dist(random_engine) * eskf_runner._params.noise_std_vel_gps[2]);
+        Vector3f npr(dist(random_engine) * eskf_runner._params.noise_std_pos_rtk[0],
+                        dist(random_engine) * eskf_runner._params.noise_std_pos_rtk[1],
+                        dist(random_engine) * eskf_runner._params.noise_std_pos_rtk[2]);
+        Vector3f nvr(dist(random_engine) * eskf_runner._params.noise_std_vel_gps[0],
+                        dist(random_engine) * eskf_runner._params.noise_std_vel_gps[1],
+                        dist(random_engine) * eskf_runner._params.noise_std_vel_gps[2]);
 
         Matrix3f R = generator::euler2rot(euler[i]).cast<float>();                
 
@@ -374,16 +387,17 @@ int main() {
     }
 
     // 数据融合
-        
-    eskf_rtk.set_gyroscope_standard_deviation(eskf_rtk._params.noise_std_gyro);
-    eskf_rtk.set_accelerometer_standard_deviation(eskf_rtk._params.noise_std_acc);
-    eskf_rtk.set_drift_gyroscope_standard_deviation(eskf_rtk._params.noise_std_drift_gyro);
-    eskf_rtk.set_drift_saccelerometer_tandard_deviation(eskf_rtk._params.noise_std_drift_acc);
-    eskf_rtk.set_gravity_standard_deviation(eskf_rtk._params.noise_std_proc_grav);
-    eskf_rtk.set_magnet_standard_deviation(eskf_rtk._params.noise_std_proc_mag);
-    eskf_rtk.set_declination_standard_deviation(eskf_rtk._params.noise_std_dec);
-    eskf_rtk.set_drift_magnetometer_standard_deviation(eskf_rtk._params.noise_std_drift_mag);
-    eskf_rtk.set_processing_standard_deviation(eskf_rtk._params.noise_std_proc);
+//    eskf_rtk.set_std_proc_pos(eskf_runner._params.noise_std_proc);
+    eskf_rtk.set_std_proc_vel(eskf_runner._params.noise_std_acc);
+    eskf_rtk.set_std_proc_ang(eskf_runner._params.noise_std_gyro);
+    eskf_rtk.set_std_proc_bias_gyro(eskf_runner._params.noise_std_proc_bias_gyro);
+    eskf_rtk.set_std_proc_bias_acc(eskf_runner._params.noise_std_proc_bias_acc);
+    eskf_rtk.set_std_proc_grav(eskf_runner._params.noise_std_proc_grav);
+    eskf_rtk.set_std_proc_mag_norm(eskf_runner._params.noise_std_proc_mag_norm);
+    eskf_rtk.set_std_proc_mag_dec(eskf_runner._params.noise_std_proc_mag_dec);
+    eskf_rtk.set_std_proc_bias_mag(eskf_runner._params.noise_std_proc_bias_mag);
+    eskf_rtk.set_std_proc_wind(eskf_runner._params.noise_std_proc_wind);
+
     eskf_rtk.enable_estimation_acc_bias();
     eskf_rtk.enable_estimation_gravity();
     // eskf_rtk.enable_estimation_magnet();
@@ -396,55 +410,26 @@ int main() {
     eskf_rtk.initialize();
 
     clock_t t1 = clock();
-    Vector3f accum_w = Vector3f::Zero();
     for (unsigned i = 0; i < pos.size(); ++i) {
         Vector3f w, a;
-        if (i > 0) {
-            w = (wm[i] + 1./12. * wm[i - 1].cross(wm[i])).cast<float>() / ts;
-            a = (vm[i] + 0.5 * wm[i].cross(vm[i]) + 1./12. * (wm[i - 1].cross(vm[i]) + vm[i - 1].cross(wm[i]))).cast<float>() / ts;
-        } else {
-            w = wm[i].cast<float>() / ts;
-            a = vm[i].cast<float>() / ts;
-        }
-        
+        w = wm[i].cast<float>() / ts;
+        a = vm[i].cast<float>() / ts;
 
-        eskf_rtk.predict_state(w, a);
-        eskf_rtk.predict_covariance(w, a);
-        unsigned char info;
-        info = eskf_rtk.fuse_position(pl_meas[i], w, a, eskf_rtk._params.d_gps_left, eskf_rtk._params.noise_std_rtk_pos, eskf_rtk._params.gate_rtk_pos);
-        if (info != 0) {
-            cout << "pl: " << int(info) << endl;
+        eskf_runner.set_imu_data(w, a, time_us_seq[i]);
+        if (i > 99) {
+            eskf_runner.set_gps_data(pl_meas[i - 100], vl_meas[i - 100], pr_meas[i - 100], vr_meas[i - 100], time_us_seq[i - 100]);
+            eskf_runner.update();
+//            cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << endl;
         }
-        info = eskf_rtk.fuse_velocity(vl_meas[i], w, a, eskf_rtk._params.d_gps_left, eskf_rtk._params.noise_std_gps_vel, eskf_rtk._params.gate_gps_vel);
-        if (info != 0) {
-            cout << "vl: " << int(info) << endl;
-        }
-        info = eskf_rtk.fuse_position(pr_meas[i], w, a, eskf_rtk._params.d_gps_right, eskf_rtk._params.noise_std_rtk_pos, eskf_rtk._params.gate_rtk_pos);
-        if (info != 0) {
-            cout << "pr: " << int(info) << endl;
-        }
-        info = eskf_rtk.fuse_velocity(vr_meas[i], w, a, eskf_rtk._params.d_gps_right, eskf_rtk._params.noise_std_gps_vel, eskf_rtk._params.gate_gps_vel);
-        if (info != 0) {
-            cout << "vr: " << int(info) << endl;
-        }
-        // info = eskf_rtk.fuse_magnet(mb_meas[i], w_meas[i], a_meas[i], eskf::noise_std_mag, eskf::gate_mag);
-        // if (info != 0) {
-        //     cout << "mag: " << int(info) << endl;
-        // }
-        // info = eskf_rtk.fuse_declination(declination, w_meas[i], a_meas[i], eskf::noise_std_dec, eskf::gate_dec);
-        // if (info != 0) {
-        //     cout << "dec: " << int(info) << endl;
-        // }
-        // eskf_rtk.correct_covariance();
-        eskf_rtk.correct_state();
+        const eskf::OutputSample &state = eskf_runner.get_output_state();
 
-        euler_hat[i] = generator::quat2euler(eskf_rtk.get_quaternion().cast<double>()).cast<float>();   
+        euler_hat[i] = generator::quat2euler(state.q.cast<double>()).cast<float>();
         p_hat[i] = eskf_rtk.get_position();
         v_hat[i] = eskf_rtk.get_velocity();
         bg_hat[i] = eskf_rtk.get_drift_gyro();
         ba_hat[i] = eskf_rtk.get_drift_acc();
         g_hat[i] = eskf_rtk.get_gravity();
-        // mb_hat[i] = q_hat[i].toRotationMatrix().transpose() * eskf_rtk.get_magnet(); 
+        // mb_hat[i] = q_hat[i].toRotationMatrix().transpose() * eskf_rtk.get_magnet();
         // bm_hat[i] = eskf_rtk.get_drift_magnet();
 
         // float h = eskf_rtk.get_magnet();
@@ -454,30 +439,96 @@ int main() {
 
         // cout << eskf_rtk.get_wind() << endl;
 
-        // cout << pn[i].transpose() << ", " << p_hat[i].transpose() << endl;
+         cout << pn[i].transpose() << ", " << p_hat[i].transpose() << ", " << state.p.transpose() << endl;
         // cout << vn[i].transpose() << ", " << v_hat[i].transpose() << endl;
-        cout << euler[i].transpose() << ", " << euler_hat[i].transpose() << endl;
-        // cout << bg_hat[i].transpose() << ", " << ba_hat[i].transpose() << ", " << g_hat[i] << endl;
-        // if (i > 0){
-        //     cout << (wm[i] + 1./12. * wm[i - 1].cross(wm[i])) / ts << endl;
-        // }
-        // accum_w += w * ts;
-        // cout << accum_w.transpose() << endl;
+//        cout << euler[i].transpose() << ", " << euler_hat[i].transpose() << endl;
 
-        // cout << pn[i].transpose() << ", " << vn[i].transpose() << endl;
-
-        // cout << wm[i].transpose() / ts_sim << ", " << vm[i].transpose() / ts_sim << endl;
-
-        // cout << mb_true[i].transpose() << ", " << mb_hat[i].transpose() << endl;
-
-        // cout << M.transpose() << ", " << eskf_rtk.get_magnet().transpose() << endl;
-
-        // cout << "H: (" << 1.f << ", " << h << "), dec: (" << declination[0] << ", " << dec[0] << "), (" << declination[1] << ", " << dec[1] << ")" << endl;
-
-        // cout << q_true[i].z() << ", " << q_hat[i].z() << endl;
     }
-    // clock_t t2 = clock();
-    // cout << "time: " << t2 - t1 << endl;
+
+
+//    clock_t t1 = clock();
+//    Vector3f accum_w = Vector3f::Zero();
+//    for (unsigned i = 0; i < pos.size(); ++i) {
+//        Vector3f w, a;
+//        if (i > 0) {
+//            w = (wm[i] + 1./12. * wm[i - 1].cross(wm[i])).cast<float>() / ts;
+//            a = (vm[i] + 0.5 * wm[i].cross(vm[i]) + 1./12. * (wm[i - 1].cross(vm[i]) + vm[i - 1].cross(wm[i]))).cast<float>() / ts;
+//        } else {
+//            w = wm[i].cast<float>() / ts;
+//            a = vm[i].cast<float>() / ts;
+//        }
+//
+//
+//        eskf_rtk.predict_state(w, a);
+//        eskf_rtk.predict_covariance(w, a);
+//        unsigned char info;
+//        info = eskf_rtk.fuse_position(pl_meas[i], w, a, eskf_runner._params.d_gps_left, eskf_runner._params.noise_std_pos_rtk, eskf_runner._params.gate_rtk_pos);
+//        if (info != 0) {
+//            cout << "pl: " << int(info) << endl;
+//        }
+//        info = eskf_rtk.fuse_velocity(vl_meas[i], w, a, eskf_runner._params.d_gps_left, eskf_runner._params.noise_std_vel_gps, eskf_runner._params.gate_gps_vel);
+//        if (info != 0) {
+//            cout << "vl: " << int(info) << endl;
+//        }
+//        info = eskf_rtk.fuse_position(pr_meas[i], w, a, eskf_runner._params.d_gps_right, eskf_runner._params.noise_std_pos_rtk, eskf_runner._params.gate_rtk_pos);
+//        if (info != 0) {
+//            cout << "pr: " << int(info) << endl;
+//        }
+//        info = eskf_rtk.fuse_velocity(vr_meas[i], w, a, eskf_runner._params.d_gps_right, eskf_runner._params.noise_std_vel_gps, eskf_runner._params.gate_gps_vel);
+//        if (info != 0) {
+//            cout << "vr: " << int(info) << endl;
+//        }
+//        // info = eskf_rtk.fuse_magnet(mb_meas[i], w_meas[i], a_meas[i], eskf::noise_std_mag, eskf::gate_mag);
+//        // if (info != 0) {
+//        //     cout << "mag: " << int(info) << endl;
+//        // }
+//        // info = eskf_rtk.fuse_declination(declination, w_meas[i], a_meas[i], eskf::noise_std_dec, eskf::gate_dec);
+//        // if (info != 0) {
+//        //     cout << "dec: " << int(info) << endl;
+//        // }
+//        // eskf_rtk.correct_covariance();
+//        eskf_rtk.correct_state();
+//
+//        euler_hat[i] = generator::quat2euler(eskf_rtk.get_quaternion().cast<double>()).cast<float>();
+//        p_hat[i] = eskf_rtk.get_position();
+//        v_hat[i] = eskf_rtk.get_velocity();
+//        bg_hat[i] = eskf_rtk.get_drift_gyro();
+//        ba_hat[i] = eskf_rtk.get_drift_acc();
+//        g_hat[i] = eskf_rtk.get_gravity();
+//        // mb_hat[i] = q_hat[i].toRotationMatrix().transpose() * eskf_rtk.get_magnet();
+//        // bm_hat[i] = eskf_rtk.get_drift_magnet();
+//
+//        // float h = eskf_rtk.get_magnet();
+//        // const Vector2f &dec = eskf_rtk.get_declination();
+//
+//        // cout << g_hat[i] << endl;
+//
+//        // cout << eskf_rtk.get_wind() << endl;
+//
+//        // cout << pn[i].transpose() << ", " << p_hat[i].transpose() << endl;
+//        // cout << vn[i].transpose() << ", " << v_hat[i].transpose() << endl;
+//        cout << euler[i].transpose() << ", " << euler_hat[i].transpose() << endl;
+//        // cout << bg_hat[i].transpose() << ", " << ba_hat[i].transpose() << ", " << g_hat[i] << endl;
+//        // if (i > 0){
+//        //     cout << (wm[i] + 1./12. * wm[i - 1].cross(wm[i])) / ts << endl;
+//        // }
+//        // accum_w += w * ts;
+//        // cout << accum_w.transpose() << endl;
+//
+//        // cout << pn[i].transpose() << ", " << vn[i].transpose() << endl;
+//
+//        // cout << wm[i].transpose() / ts_sim << ", " << vm[i].transpose() / ts_sim << endl;
+//
+//        // cout << mb_true[i].transpose() << ", " << mb_hat[i].transpose() << endl;
+//
+//        // cout << M.transpose() << ", " << eskf_rtk.get_magnet().transpose() << endl;
+//
+//        // cout << "H: (" << 1.f << ", " << h << "), dec: (" << declination[0] << ", " << dec[0] << "), (" << declination[1] << ", " << dec[1] << ")" << endl;
+//
+//        // cout << q_true[i].z() << ", " << q_hat[i].z() << endl;
+//    }
+//    // clock_t t2 = clock();
+//    // cout << "time: " << t2 - t1 << endl;
 
 
     return 0;

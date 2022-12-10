@@ -6,7 +6,7 @@
 #include <cfloat>
 #include <iostream>
 
-namespace geskf {
+namespace eskf {
     using namespace std;
 
     unsigned char GESKF::fuse_position(const Vector3f &pos, const Vector3f &w, const Vector3f &a, 
@@ -50,7 +50,7 @@ namespace geskf {
 
             // H * P  or  P * H'
             const float cov_1_dim = (dim == 2) ? _cov[1][dim] : _cov[dim][1];
-            array<float, ESKF::dim> HP = {_cov[0][dim] + _cov[0][6]*minus_rot_d_hat[dim][0] + _cov[0][7]*minus_rot_d_hat[dim][1] + _cov[0][8]*minus_rot_d_hat[dim][2],
+            array<float, ESKF::DIM> HP = {_cov[0][dim] + _cov[0][6]*minus_rot_d_hat[dim][0] + _cov[0][7]*minus_rot_d_hat[dim][1] + _cov[0][8]*minus_rot_d_hat[dim][2],
                                                 cov_1_dim + _cov[1][6]*minus_rot_d_hat[dim][0] + _cov[1][7]*minus_rot_d_hat[dim][1] + _cov[1][8]*minus_rot_d_hat[dim][2],
                                                 _cov[dim][2] + _cov[2][6]*minus_rot_d_hat[dim][0] + _cov[2][7]*minus_rot_d_hat[dim][1] + _cov[2][8]*minus_rot_d_hat[dim][2],
                                                 _cov[dim][3] + _cov[3][6]*minus_rot_d_hat[dim][0] + _cov[3][7]*minus_rot_d_hat[dim][1] + _cov[3][8]*minus_rot_d_hat[dim][2],
@@ -112,7 +112,7 @@ namespace geskf {
             }
         }  
         
-        regular_covariance_to_symmetric<ESKF::dim>(0);
+        regular_covariance_to_symmetric<ESKF::DIM>(0);
 
         return info;
     }

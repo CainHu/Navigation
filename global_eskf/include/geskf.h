@@ -10,7 +10,7 @@
 #include <array>
 #include "eskf.h"
 
-namespace geskf {
+namespace eskf {
     using namespace std;
     using namespace Eigen;
 
@@ -28,7 +28,6 @@ namespace geskf {
         unsigned char fuse_declination(const Vector2f &dec, const Vector3f &w, const Vector3f &a, const Vector2f &noise_std, const Vector2f &gate);
         void correct_state();
         void correct_covariance();
-        void correct_output_states(const eskf::ImuSample &imu_sample);
     };
 }
 

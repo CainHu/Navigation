@@ -6,7 +6,7 @@
 #include <cfloat>
 #include <iostream>
 
-namespace geskf {
+namespace eskf {
     using namespace std;
 
     void GESKF::predict_covariance(const Vector3f &w, const Vector3f &a) {
@@ -433,7 +433,7 @@ namespace geskf {
             add_processing_covariance<2>(22);
         }
 
-        regular_covariance_to_symmetric<ESKF::dim>(0);
+        regular_covariance_to_symmetric<ESKF::DIM>(0);
     }
 
     void GESKF::correct_covariance() {

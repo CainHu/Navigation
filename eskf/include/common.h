@@ -9,24 +9,32 @@ namespace eskf {
     using namespace Eigen;
 
     struct parameters {
-        // Standard deviation of noise
-        Vector3f noise_std_rtk_pos {0.01f, 0.01f, 0.01f};
-        Vector3f noise_std_gps_pos {0.1f, 0.1f, 0.1f};
-        Vector3f noise_std_gps_vel {0.01f, 0.01f, 0.01f};
-        Vector3f noise_std_vision_pos {0.01f, 0.01f, 0.01f};
-        Vector3f noise_std_vision_vel {0.01f, 0.01f, 0.01f};
+        // 量测噪声标准差
+        Vector3f noise_std_pos_rtk {0.01f, 0.01f, 0.01f};
+        Vector3f noise_std_pos_gps {0.1f, 0.1f, 0.1f};
+        Vector3f noise_std_pos_vision {0.01f, 0.01f, 0.01f};
+        Vector3f noise_std_vel_gps {0.01f, 0.01f, 0.01f};
+        Vector3f noise_std_vel_vision {0.01f, 0.01f, 0.01f};
         Vector3f noise_std_gyro {0.01f, 0.01f, 0.01f};
-        Vector3f noise_std_acc {0.1f, 0.1f, 0.1f};
         Vector3f noise_std_sat_gyro {1.f, 1.f, 1.f};
+        Vector3f noise_std_acc {0.1f, 0.1f, 0.1f};
         Vector3f noise_std_sat_acc {10.f, 10.f, 10.f};
-        Vector3f noise_std_drift_gyro {0.001f, 0.001f, 0.001f};
-        Vector3f noise_std_drift_acc {0.0001f, 0.0001f, 0.0001f};
         Vector3f noise_std_mag {0.1f, 0.1f, 0.1f};
-        float noise_std_proc_mag {0.01f};
         Vector2f noise_std_dec {0.01f, 0.01f};
-        Vector3f noise_std_drift_mag {0.0001f, 0.0001f, 0.0001f};
-        float noise_std_baro {0.2f};
-        float noise_std_proc_grav {0.005f};
+        float noise_std_baro {5e-1f};
+
+        // 过程噪声标准差
+        Vector3f noise_std_proc_pos {1e-4f, 1e-4f, 1e-4f};
+        Vector3f noise_std_proc_vel {1e-5f, 1e-5f, 1e-5f};
+        Vector3f noise_std_proc_ang {1e-6f, 1e-6f, 1e-6f};
+        Vector3f noise_std_proc_bias_gyro {1e-3f, 1e-3f, 1e-3f};
+        Vector3f noise_std_proc_bias_acc {1e-4f, 1e-4f, 1e-4f};
+        float noise_std_proc_grav {5e-3f};
+        float noise_std_proc_mag_norm {1e-2f};
+        Vector2f noise_std_proc_mag_dec {5e-3f, 5e-3f};
+        Vector3f noise_std_proc_bias_mag {1e-3f, 1e-31f, 1e-3f};
+        Vector2f noise_std_proc_wind {1e-2f, 1e-2f};
+        
         float noise_std_proc {0.00001f};
 
         // Direction vector
@@ -78,8 +86,8 @@ namespace eskf {
         Vector3f bias_gyro;
         Vector3f bias_acc;
         float grav;
-        float mag;
-        Vector2f dec;
+        float mag_norm;
+        Vector2f mag_dec;
         Vector3f bias_mag;
         Vector2f wind;
 
@@ -92,9 +100,9 @@ namespace eskf {
         Vector3f ang;
         Vector3f bias_gyro;
         Vector3f bias_acc;
-        float g;
-        float mag;
-        Vector2f dec;
+        float grav;
+        float mag_norm;
+        Vector2f mag_dec;
         Vector3f bias_mag;
         Vector2f wind;
     };
@@ -104,45 +112,45 @@ namespace eskf {
     };
 
     struct OutputSample : Sample {
-        Quaternionf q;
-        Matrix3f r;
-        Vector3f v;
-        Vector3f p;
+        Quaternionf q {Quaternionf::Identity()};
+        Matrix3f r {Matrix3f::Identity()};
+        Vector3f v {Vector3f::Zero()};
+        Vector3f p {Vector3f::Zero()};
     };
 
     struct ImuSample : Sample {
-        Vector3f delta_ang {};
-        Vector3f delta_vel {};
+        Vector3f delta_ang {Vector3f::Zero()};
+        Vector3f delta_vel {Vector3f::Zero()};
         float delta_ang_dt {0.f};
         float delta_vel_dt {0.f};
         array<bool, 3> delta_vel_clipping;
     };
 
     struct GpsSample : Sample {
-        Vector3f pos_l;
-        Vector3f vel_l;    
-        Vector3f pos_r;
-        Vector3f vel_r;    
+        Vector3f pos_l {Vector3f::Zero()};
+        Vector3f vel_l {Vector3f::Zero()};
+        Vector3f pos_r {Vector3f::Zero()};
+        Vector3f vel_r {Vector3f::Zero()};
     };
 
     struct MagSample : Sample {
-        Vector3f mag;    
+        Vector3f mag {Vector3f::Zero()};
     };
 
     struct DecSample : Sample {
-        Vector2f dec;
+        Vector2f dec {Vector2f::Zero()};
     };
 
     struct AirspeedSample : Sample {
-        float true_airspeed;
-        float eas2tas;
+        float true_airspeed {0.f};
+        float eas2tas {1.f};
     };
 
     struct PreIntegralSample : Sample {
-        float dt;
-        Matrix3f dr;
-        Vector3f dv;
-        Vector3f dp;
+        float dt {0.f};
+        Matrix3f dr {Matrix3f::Identity()};
+        Vector3f dv {Vector3f::Zero()};
+        Vector3f dp {Vector3f::Zero()};
     };
     
 }

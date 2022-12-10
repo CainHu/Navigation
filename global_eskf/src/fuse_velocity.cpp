@@ -6,7 +6,7 @@
 #include <cfloat>
 #include <iostream>
 
-namespace geskf {
+namespace eskf {
     using namespace std;
 
     unsigned char GESKF::fuse_velocity(const Vector3f &vel, const Vector3f &w, const Vector3f &a, 
@@ -58,7 +58,7 @@ namespace geskf {
             // H * P  or  P * H'
             const unsigned int index = 3 + dim;
             const float cov_4_index = (dim == 2) ? _cov[4][index] : _cov[index][4];
-            array<float, ESKF::dim> HP = {_cov[0][index] + _cov[0][6]*rot_d_cross_w_corr_hat[dim][0] + _cov[0][7]*rot_d_cross_w_corr_hat[dim][1] + _cov[0][8]*rot_d_cross_w_corr_hat[dim][2] + _cov[0][9]*rot_d_hat[0] + _cov[0][10]*rot_d_hat[1] + _cov[0][11]*rot_d_hat[2],
+            array<float, ESKF::DIM> HP = {_cov[0][index] + _cov[0][6]*rot_d_cross_w_corr_hat[dim][0] + _cov[0][7]*rot_d_cross_w_corr_hat[dim][1] + _cov[0][8]*rot_d_cross_w_corr_hat[dim][2] + _cov[0][9]*rot_d_hat[0] + _cov[0][10]*rot_d_hat[1] + _cov[0][11]*rot_d_hat[2],
                                             _cov[1][index] + _cov[1][6]*rot_d_cross_w_corr_hat[dim][0] + _cov[1][7]*rot_d_cross_w_corr_hat[dim][1] + _cov[1][8]*rot_d_cross_w_corr_hat[dim][2] + _cov[1][9]*rot_d_hat[0] + _cov[1][10]*rot_d_hat[1] + _cov[1][11]*rot_d_hat[2],
                                             _cov[2][index] + _cov[2][6]*rot_d_cross_w_corr_hat[dim][0] + _cov[2][7]*rot_d_cross_w_corr_hat[dim][1] + _cov[2][8]*rot_d_cross_w_corr_hat[dim][2] + _cov[2][9]*rot_d_hat[0] + _cov[2][10]*rot_d_hat[1] + _cov[2][11]*rot_d_hat[2],
                                             _cov[3][index] + _cov[3][6]*rot_d_cross_w_corr_hat[dim][0] + _cov[3][7]*rot_d_cross_w_corr_hat[dim][1] + _cov[3][8]*rot_d_cross_w_corr_hat[dim][2] + _cov[3][9]*rot_d_hat[0] + _cov[3][10]*rot_d_hat[1] + _cov[3][11]*rot_d_hat[2],
@@ -120,7 +120,7 @@ namespace geskf {
             }
         }
         
-        regular_covariance_to_symmetric<ESKF::dim>(0);
+        regular_covariance_to_symmetric<ESKF::DIM>(0);
 
         return info;
     }

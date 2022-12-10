@@ -15,139 +15,9 @@ void ESKF::initialize() {
 
     reset_state();
     reset_error_state();
-    reset_covariance_matrix(0, ESKF::dim);
-    regular_covariance_to_symmetric<ESKF::dim>(0);
+    reset_covariance_matrix(0, ESKF::DIM);
+    regular_covariance_to_symmetric<ESKF::DIM>(0);
     reset_accmulator_cov();
-}
-
-void ESKF::rotation_from_axis_angle(Matrix3f &r, const array<float, 3> &a) const {
-    /* Rodrigues's Formula:
-    * a = n * θ
-    * R = cosθ*I + (1 - cosθ)*n*n' + sinθ*n^
-    * */
-    const float a_norm_square = a[0] * a[0] + a[1] * a[1] + a[2] * a[2];
-    if (a_norm_square < _dt2 * 1e-12f) {
-        r << 1.f, -a[2], a[1],
-            a[2], 1.f, -a[0],
-            -a[1], a[0], 1.f;
-    } else {
-        const float a_norm = sqrtf(a_norm_square);
-        const array<float, 3> a_unit = {a[0] / a_norm, a[1] / a_norm, a[2] / a_norm};
-        const float theta = a_norm;
-        const float cos_theta = cosf(theta), sin_theta = sinf(theta);
-        const float tmp = 1.f - cos_theta;
-
-        const float xx = a_unit[0] * a_unit[0] * tmp;
-        const float xy = a_unit[0] * a_unit[1] * tmp;
-        const float xz = a_unit[0] * a_unit[2] * tmp;
-        const float yy = a_unit[1] * a_unit[1] * tmp;
-        const float yz = a_unit[1] * a_unit[2] * tmp;
-        const float zz = a_unit[2] * a_unit[2] * tmp;
-
-        const float sx = sin_theta * a_unit[0];
-        const float sy = sin_theta * a_unit[1];
-        const float sz = sin_theta * a_unit[2];
-
-        r(0, 0) = cos_theta + xx;
-        r(0, 1) = xy - sz;
-        r(0, 2) = xz + sy;
-        r(1, 0) = xy + sz;
-        r(1, 1) = cos_theta + yy;
-        r(1, 2) = yz - sx;
-        r(2, 0) = xz - sy;
-        r(2, 1) = yz + sx;
-        r(2, 2) = cos_theta + zz;
-    }
-}
-
-void ESKF::quaternion_from_axis_angle(Quaternionf &q, const array<float, 3> &a) const {
-    /*
-    a = n * θ
-    q = [cos(θ/2), n*sin(θ/2)]
-    */
-
-    const float a_norm_square = a[0] * a[0] + a[1] * a[1] + a[2] * a[2];
-    if (a_norm_square < _dt2 * 1e-12f) {
-        q.w() = sqrtf(1.f - 0.25f * a_norm_square);
-        q.x() = 0.5f * a[0];
-        q.y() = 0.5f * a[1];
-        q.z() = 0.5f * a[2];
-    } else {
-        const float a_norm = sqrtf(a_norm_square);
-        const array<float, 3> a_unit = {a[0] / a_norm, a[1] / a_norm, a[2] / a_norm};
-        const float half_theta = 0.5f * a_norm;
-        const float c = cosf(half_theta), s = sinf(half_theta);
-
-        q.w() = c;
-        q.x() = s * a_unit[0];
-        q.y() = s * a_unit[1];
-        q.z() = s * a_unit[2];
-    }
-}
-
-void ESKF::rotation_from_axis_angle(Matrix3f &r, const Vector3f &a) const {
-    /* Rodrigues's Formula:
-    * a = n * θ
-    * R = cosθ*I + (1 - cosθ)*n*n' + sinθ*n^
-    * */
-    const float a_norm_square = a.squaredNorm();
-    if (a_norm_square < _dt2 * 1e-12f) {
-        r << 1.f, -a[2], a[1],
-            a[2], 1.f, -a[0],
-            -a[1], a[0], 1.f;
-    } else {
-        const float a_norm = sqrtf(a_norm_square);
-        const Vector3f a_unit = a / a_norm;
-        const float theta = a_norm;
-        const float cos_theta = cosf(theta), sin_theta = sinf(theta);
-        const float tmp = 1.f - cos_theta;
-
-        const float xx = a_unit[0] * a_unit[0] * tmp;
-        const float xy = a_unit[0] * a_unit[1] * tmp;
-        const float xz = a_unit[0] * a_unit[2] * tmp;
-        const float yy = a_unit[1] * a_unit[1] * tmp;
-        const float yz = a_unit[1] * a_unit[2] * tmp;
-        const float zz = a_unit[2] * a_unit[2] * tmp;
-
-        const float sx = sin_theta * a_unit[0];
-        const float sy = sin_theta * a_unit[1];
-        const float sz = sin_theta * a_unit[2];
-
-        r(0, 0) = cos_theta + xx;
-        r(0, 1) = xy - sz;
-        r(0, 2) = xz + sy;
-        r(1, 0) = xy + sz;
-        r(1, 1) = cos_theta + yy;
-        r(1, 2) = yz - sx;
-        r(2, 0) = xz - sy;
-        r(2, 1) = yz + sx;
-        r(2, 2) = cos_theta + zz;
-    }
-}
-
-void ESKF::quaternion_from_axis_angle(Quaternionf &q, const Vector3f &a) const {
-    /*
-    a = n * θ
-    q = [cos(θ/2), n*sin(θ/2)]
-    */
-
-    const float a_norm_square = a.squaredNorm();
-    if (a_norm_square < _dt2 * 1e-12f) {
-        q.w() = sqrtf(1.f - 0.25f * a_norm_square);
-        q.x() = 0.5f * a[0];
-        q.y() = 0.5f * a[1];
-        q.z() = 0.5f * a[2];
-    } else {
-        const float a_norm = sqrtf(a_norm_square);
-        const array<float, 3> a_unit = {a[0] / a_norm, a[1] / a_norm, a[2] / a_norm};
-        const float half_theta = 0.5f * a_norm;
-        const float c = cosf(half_theta), s = sinf(half_theta);
-
-        q.w() = c;
-        q.x() = s * a_unit[0];
-        q.y() = s * a_unit[1];
-        q.z() = s * a_unit[2];
-    }
 }
 
 void ESKF::predict_state(const Vector3f &w, const Vector3f &a) {
@@ -211,7 +81,7 @@ void ESKF::predict_state(const Vector3f &w, const Vector3f &a) {
     _rot = _q;
 }
 
-unsigned char ESKF::conservative_posteriori_estimate(const array<float, ESKF::dim> &HP, const float &HPHT_plus_R, const float &obs_error, const float &gate) {
+unsigned char ESKF::conservative_posteriori_estimate(const array<float, ESKF::DIM> &HP, const float &HPHT_plus_R, const float &obs_error, const float &gate) {
     /*
     K = P * H' * (H * P * H' + R)^-1
     P = P - K * H * P
@@ -233,7 +103,7 @@ unsigned char ESKF::conservative_posteriori_estimate(const array<float, ESKF::di
     }
 
     // K = P * H' * (H * P * H' + R)^-1
-    array<float, ESKF::dim> K {};
+    array<float, ESKF::DIM> K {};
     for (unsigned char i = 0; i < 16; ++i) {
         K[i] = HP[i] / HPHT_plus_R;
     }
@@ -347,21 +217,4 @@ unsigned char ESKF::conservative_posteriori_estimate(const array<float, ESKF::di
     }
     
     return 0;
-}
-
-bool ESKF::update(const ImuSample &sample) {
-
-    // _imu_sample_delayed = imu_buffer.get_oldest();
-    // imu_buffer.push(sample);
-
-    // if (_imu_updated) {
-    //     predict_state(_imu_sample_delayed.delta_ang, _imu_sample_delayed.delta_vel);
-    //     predict_covariance(_imu_sample_delayed.delta_ang, _imu_sample_delayed.delta_vel);
-
-    //     updated = true;
-    // }
-
-    // correct_output_states(_newest_high_rate_imu_sample);
-
-    // return updated;
 }

@@ -1,10 +1,13 @@
 #ifndef NAVIGATION_ESKF_UTILS_H
 #define NAVIGATION_ESKF_UTILS_H
 
+#include <cmath>
 #include <array>
+#include <Eigen/Dense>
 
 namespace eskf {
     using namespace std;
+    using namespace Eigen;
 
     template<typename T, unsigned char SIZE>
     class Queue {
@@ -108,6 +111,14 @@ namespace eskf {
         unsigned char _head {0};
         unsigned char _tail {0};
     };
+
+    void rotation_from_axis_angle(Matrix3f &r, const array<float, 3> &a);
+    void quaternion_from_axis_angle(Quaternionf &q, const array<float, 3> &a);
+    void rotation_from_axis_angle(Matrix3f &r, const Vector3f &a);
+    void quaternion_from_axis_angle(Quaternionf &q, const Vector3f &a);
+    void normalize_angle(float &angle);
+    float normalize_angle(float angle);
+
 }
 
 #endif //NAVIGATION_ESKF_UTILS_H

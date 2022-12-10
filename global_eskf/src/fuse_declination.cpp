@@ -6,7 +6,7 @@
 #include <cfloat>
 #include <iostream>
 
-namespace geskf {
+namespace eskf {
     using namespace std;
 
     unsigned char GESKF::fuse_declination(const Vector2f &dec, const Vector3f &w, const Vector3f &a, const Vector2f &noise_std, const Vector2f &gate) {
@@ -31,7 +31,7 @@ namespace geskf {
 
             // H * P  or  P * H'
             const unsigned int index = 17 + dim;
-            array<float, ESKF::dim> HP = {_cov[0][index],
+            array<float, ESKF::DIM> HP = {_cov[0][index],
                                             _cov[1][index],
                                             _cov[2][index],
                                             _cov[3][index],
@@ -86,7 +86,7 @@ namespace geskf {
             }
         }
         
-        regular_covariance_to_symmetric<ESKF::dim>(0);
+        regular_covariance_to_symmetric<ESKF::DIM>(0);
 
         return info;
     }
