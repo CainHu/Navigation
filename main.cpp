@@ -418,12 +418,11 @@ int main() {
         eskf_runner.set_imu_data(w, a, time_us_seq[i]);
         if (i > 99) {
             eskf_runner.set_gps_data(pl_meas[i - 100], vl_meas[i - 100], pr_meas[i - 100], vr_meas[i - 100], time_us_seq[i - 100]);
-            eskf_runner.update();
-//            cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << endl;
         }
+        eskf_runner.update();
         const eskf::OutputSample &state = eskf_runner.get_output_state();
 
-        euler_hat[i] = generator::quat2euler(state.q.cast<double>()).cast<float>();
+        euler_hat[i] = generator::quat2euler(eskf_rtk.get_quaternion().cast<double>()).cast<float>();
         p_hat[i] = eskf_rtk.get_position();
         v_hat[i] = eskf_rtk.get_velocity();
         bg_hat[i] = eskf_rtk.get_drift_gyro();
@@ -439,7 +438,8 @@ int main() {
 
         // cout << eskf_rtk.get_wind() << endl;
 
-         cout << pn[i].transpose() << ", " << p_hat[i].transpose() << ", " << state.p.transpose() << endl;
+//         cout << pn[i].transpose() << "," << p_hat[i].transpose() << "," << state.p.transpose() << endl;
+        cout << euler[i].transpose() << "," << euler_hat[i].transpose() << "," << generator::quat2euler(state.q.cast<double>()).cast<float>().transpose() << endl;
         // cout << vn[i].transpose() << ", " << v_hat[i].transpose() << endl;
 //        cout << euler[i].transpose() << ", " << euler_hat[i].transpose() << endl;
 

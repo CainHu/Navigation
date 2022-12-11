@@ -16,18 +16,18 @@ namespace eskf {
 
     class GESKF : public eskf::ESKF {
     public:
-        GESKF(float dt, const float g=9.8f) : eskf::ESKF(dt, g) {};
+        explicit GESKF(float dt, const float g=9.8f) : eskf::ESKF(dt, g) {};
 
         // Priori
-        void predict_covariance(const Vector3f &w, const Vector3f &a);
+        void predict_covariance(const Vector3f &w, const Vector3f &a) override;
 
         // Posteriori
-        unsigned char fuse_position(const Vector3f &pos, const Vector3f &w, const Vector3f &a, const Vector3f &dis, const Vector3f &noise_std, const Vector3f &gate);
-        unsigned char fuse_velocity(const Vector3f &vel, const Vector3f &w, const Vector3f &a, const Vector3f &dis, const Vector3f &noise_std, const Vector3f &gate);
-        unsigned char fuse_magnet(const Vector3f &mag, const Vector3f &w, const Vector3f &a, const Vector3f &noise_std, const Vector3f &gate);
-        unsigned char fuse_declination(const Vector2f &dec, const Vector3f &w, const Vector3f &a, const Vector2f &noise_std, const Vector2f &gate);
-        void correct_state();
-        void correct_covariance();
+        unsigned char fuse_position(const Vector3f &pos, const Vector3f &w, const Vector3f &a, const Vector3f &dis, const Vector3f &noise_std, const Vector3f &gate) override;
+        unsigned char fuse_velocity(const Vector3f &vel, const Vector3f &w, const Vector3f &a, const Vector3f &dis, const Vector3f &noise_std, const Vector3f &gate) override;
+        unsigned char fuse_magnet(const Vector3f &mag, const Vector3f &w, const Vector3f &a, const Vector3f &noise_std, const Vector3f &gate) override;
+        unsigned char fuse_declination(const Vector2f &dec, const Vector3f &w, const Vector3f &a, const Vector2f &noise_std, const Vector2f &gate) override;
+        void correct_state() override;
+        void correct_covariance() override;
     };
 }
 

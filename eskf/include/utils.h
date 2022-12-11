@@ -9,106 +9,73 @@ namespace eskf {
     using namespace std;
     using namespace Eigen;
 
-    template<typename T, unsigned char SIZE>
+    template<typename T, unsigned char N>
     class Queue {
     public:
-        Queue() { };
-        Queue(const T& value) {
-            for (T & v : _data) {
+        Queue() = default;;
+        explicit Queue(const T &value) {
+            for (const T &v : _data) {
                 v = value;
             }
-        };
+        }
 
         T &operator[](const unsigned char index) {
             return _data[index];
         }
 
-        const unsigned char &head() const { return _head; };
-        const unsigned char &tail() const { return _tail; };
-        const unsigned char &length() const { return SIZE; };
+        bool is_empty() const { return _size == 0; };
+        bool is_full() const { return _size == N; };
+        const T &newest() const { return _data[_head]; };
+        const T &oldest() const { return _data[_tail]; };
+        unsigned char newest_index() const { return _head; };
+        unsigned char oldest_index() const { return _tail; };
+        unsigned char size() const { return _size; };
+        unsigned char capacity() const { return N; };
+        void clear() { _size = 0; _head = N - 1; _tail = 0; }
 
-        void push(const T & value) {
-            unsigned char head = _head;
-
-            if (!_first_write) {
-                head = (_head + 1) % SIZE;
+        void push(const T &value) {
+            if (++_head == N) {
+                _head = 0;
             }
+            _data[_head] = value;
 
-            _data[head] = value;
-            _head = head;
-
-            if (_head == _tail && !_first_write) {
-                _tail = (_tail + 1) % SIZE;
-            } else {
-                _first_write = false;
+            if (++_size > N) {
+                _size = N;
+                if (++_tail == N) {
+                    _tail = 0;
+                }
             }
         }
 
         bool pop_first_older_than(const unsigned long &timestamp, T & value) {
-            for (unsigned char i = 0; i < SIZE; ++i) {
-                int index = _head - i;
-                index = index < 0 ? SIZE + index : index;
+            for (unsigned char i = 0; i < _size; ++i) {
+                unsigned char index = (i > _head) ? (N - i - _head) : _head - i;
 
+                // 离timestamp最接近且延迟小于100ms
                 if (timestamp >= _data[index].time_us && timestamp < _data[index].time_us + (unsigned long)1e5) {
                     value = _data[index];
 
-                    // 清空index后面的元素
-                    if (index == _head) {   
-                        _tail = _head;
-                        _first_write = true;
-                    } else {    // 清空index
-                        _tail = (index + 1) % SIZE;
+                    // 清空index及index后面的元素
+                    _tail = index + 1;
+                    if (_tail == N) {
+                        _tail = 0;
                     }
+                    _size = i;
 
                     _data[index].time_us = 0;
 
                     return true;
                 }
-
-                if (index == _tail) {
-                    return false;
-                }
             }
 
+            // 队列为空 或者 没有timestamp之前的数据, 则返回失败
             return false;
         }
 
-        unsigned char get_length() const {
-            return SIZE;
-        }
-
-        const T &get_newest() const {
-            return _data[_head];
-        }
-
-        const T &get_oldest() const {
-            return _data[_tail];
-        }
-
-        unsigned char get_oldest_index() const {
-            return _tail;
-        }
-
-        unsigned char get_newest_index() const {
-            return _head;
-        }
-
-        int entries() const {
-            int count = 0;
-
-            for (unsigned char i = 0; i < SIZE; ++i) {
-                if (_data[i].time_us != 0) {
-                    ++count;
-                }
-            }
-
-            return count;
-        }
-
     protected:
-        bool _first_write {true};
-        array<T, SIZE> _data {};
-        unsigned char _head {0};
+        array<T, N> _data {};
+        unsigned char _size {0};
+        unsigned char _head {N - 1};
         unsigned char _tail {0};
     };
 
